@@ -8,6 +8,25 @@ Representation:
 - 2 means on fire
 '''
 
+'''
+Problems:
+1: Maxwell - DONE
+2: 
+3: 
+4: 
+5: 
+6: 
+7: 
+8: 
+'''
+
+
+# maze: 2d list
+# returns: nothing
+def print_maze(maze):
+    for row in maze:
+        print(row)
+
 
 # dim: length of maze edge
 # p: obstacle density
@@ -20,15 +39,5 @@ def generate_maze(dim, p):
     for i in range(dim):
         maze.append([])
         for j in range(dim):
-            if not ((i == 0 and j == 0) or (i == dim - 1 and j == dim - 1)) and random.random() <= p:
-                maze[i].append(1)
-            else:
-                maze[i].append(0)
+            maze[i].append(1 if (i != 0 or j != 0) and (i != dim - 1 or j != dim - 1) and random.random() <= p else 0)
     return maze
-
-
-# maze: 2d list
-# returns: nothing
-def print_maze(maze):
-    for row in maze:
-        print(row)

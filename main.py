@@ -11,7 +11,7 @@ def problem1():
 
 def problem2():
     exec = concurrent.futures.ProcessPoolExecutor()
-    dim = 100
+    dim = 75
     trials_per_p = 80
     p_steps = 400
 
@@ -19,6 +19,7 @@ def problem2():
 
     x = [p/p_steps for p in range(p_steps)]
     y = [0 for _ in range(p_steps)]
+
     futures = {exec.submit(p2_trial, dim, p/p_steps) : p/p_steps for _ in range(trials_per_p) for p in range(p_steps)}
     for f in concurrent.futures.as_completed(futures):
         if f.result():
@@ -27,7 +28,8 @@ def problem2():
 
     print(time.time() - t)
 
-    plt.plot(x, y)
+    # plt.plot(x, y)
+    plt.scatter(x, y, s=[1 for _ in x])
     plt.title('Figure 2')
     plt.xlabel('Obstacle Density p')
     plt.ylabel('Probability S reachable from G')

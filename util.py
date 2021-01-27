@@ -39,14 +39,11 @@ def generate_maze(dim, p):
     if dim <= 0 or not isinstance(dim, int):
         print('dim should be positive integer')
         return
-    if p <= 0 or p >= 1 or not isinstance(p, float):
+    if not 0 <= p <= 1:
         print('p should be float where 0 < p < 1')
         return
-    maze = []
-    for i in range(dim):
-        maze.append([])
-        for j in range(dim):
-            maze[i].append(1 if (i != 0 or j != 0) and (i != dim - 1 or j != dim - 1) and random.random() <= p else 0)
+    maze = [[1 if random.random() < p else 0 for _ in range(dim)] for _ in range(dim)]
+    maze[0][0], maze[-1][-1] = 0, 0
     return maze
 
 
@@ -78,12 +75,13 @@ def check_reachable(maze, s, g):
     # check if s and g are valid
     # use stack structure for fringe so it's DFS
     # keep track of visited
-    if s[0] < 0 or s[0] >= len(maze) or s[1] < 0 or s[1] >= len(maze):
-        print('s coordinates are out of bounds')
-        return
-    if g[0] < 0 or g[0] >= len(maze) or g[1] < 0 or g[1] >= len(maze):
-        print('g coordinates are out of bounds')
-        return
+    dx, dy = [0, 0, -1, 1], [-1, 1, 0, 0]
+
+    for c in s+g:
+        if not 0 <= c < len(maze):
+            print("Coordinates out of bound")
+            return
+
     fringe = [s]
     visited = set()
     while fringe:
@@ -91,5 +89,8 @@ def check_reachable(maze, s, g):
         if current == g:
             return True
         visited.add(current)
-        fringe.extend(get_neighbors(maze, current, visited))
+        for i in range(4):
+            x, y = current[0] + dx[i], current[1] + dy[i]
+            if (x, y) not in visited and 0 <= x < len(maze) and 0 <= y < len(maze) and maze[x][y] == 0:
+                fringe.append((x, y))
     return False

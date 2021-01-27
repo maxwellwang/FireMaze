@@ -11,9 +11,9 @@ def problem1():
 
 def problem2():
     exec = concurrent.futures.ProcessPoolExecutor()
-    dim = 1000
-    trials_per_p = 160
-    p_steps = 800
+    dim = 100
+    trials_per_p = 80
+    p_steps = 400
 
     t = time.time()
 
@@ -22,7 +22,7 @@ def problem2():
     futures = {exec.submit(p2_trial, dim, p/p_steps) : p/p_steps for _ in range(trials_per_p) for p in range(p_steps)}
     for f in concurrent.futures.as_completed(futures):
         if f.result():
-            y[round(futures[f]*p_steps)] += 1
+            y[round(futures[f] * p_steps)] += 1
     y = [i/trials_per_p for i in y]
 
     print(time.time() - t)
@@ -38,8 +38,6 @@ def p2_trial(dim, p):
     maze = generate_maze(dim, p)
     return check_reachable(maze, (0, 0), (dim - 1, dim - 1))
 
-# problem1()
 if __name__ == "__main__":
-    t = time.time()
+    # problem1()
     problem2()
-    print (time.time() - t)

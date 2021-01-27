@@ -1,5 +1,7 @@
 import random
-
+from collections import deque
+import heapq
+import math
 '''
 Representation:
 - maze is 2d list of integers 0-2
@@ -88,9 +90,59 @@ def check_reachable(maze, s, g):
         current = fringe.pop()
         if current == g:
             return True
-        visited.add(current)
+        # visited.add(current)
         for i in range(4):
             x, y = current[0] + dx[i], current[1] + dy[i]
             if (x, y) not in visited and 0 <= x < len(maze) and 0 <= y < len(maze) and maze[x][y] == 0:
+                visited.add((x, y))
                 fringe.append((x, y))
     return False
+
+
+def bfs(maze, s, g):
+    dx, dy = [0, 0, -1, 1], [-1, 1, 0, 0]
+
+    fringe, visited = deque(), set()
+    fringe.append(s)
+    visited.add(s)
+    num_visited = 0
+
+    while fringe:
+        v = fringe.popleft()
+        num_visited += 1
+        if v == g:
+            break
+        for i in range(4):
+            x, y = v[0] + dx[i], v[1] + dy[i]
+            if (x, y) not in visited and 0 <= x < len(maze) and 0 <= y < len(maze) and maze[x][y] == 0:
+                visited.add((x, y))
+                fringe.append((x, y))
+    return num_visited
+
+def a_star(maze, s, g):
+    dx, dy = [0, 0, -1, 1], [-1, 1, 0, 0]
+    h = lambda f, g : math.sqrt(math.pow(f[0]-g[0], 2) + math.pow(f[1]-g[1], 2))
+
+    fringe = [(0, s)]
+    dim = len(maze)
+    dist = [[float("inf") for _ in range(dim)] for _ in range(dim)]
+    dist[0][0] = 0
+    visited = set()
+    visited.add(s)
+    num_visited = 0
+
+    while fringe:
+        v_dist, v = heapq.heappop(fringe)
+        num_visited += 1
+        if v == g:
+            break
+        for i in range(4):
+            x, y = v[0] + dx[i], v[1] + dy[i]
+            if (x, y) not in visited and 0 <= x < len(maze) and 0 <= y < len(maze) and maze[x][y] == 0:
+                visited.add(v)
+                new_dist = v_dist + 1 + h((x, y), g)
+                if new_dist < dist[x][y]:
+                    dist[x][y] = new_dist
+                    heapq.heappush(fringe, (new_dist, (x, y)))
+
+    return num_visited

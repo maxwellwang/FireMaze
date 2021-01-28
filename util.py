@@ -49,6 +49,14 @@ def generate_maze(dim, p):
     maze[0][0], maze[-1][-1] = 0, 0
     return maze
 
+def start_fire(maze):
+    dim = len(maze)
+    cell = random.randint(1, dim * dim - 1)
+    while maze[cell//dim][cell % dim] != 0:
+        cell = random.randint(1, dim * dim - 1)
+    maze[cell // dim][cell % dim] = 2
+    return ((cell//dim, cell % dim))
+
 def adj_cells(x, y):
     dx, dy = [0, 0, -1, 1], [-1, 1, 0, 0]
     for i in range(4):

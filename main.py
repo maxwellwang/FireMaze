@@ -98,10 +98,9 @@ def p4_trial(dim, p):
     return (time.time() - t)
 
 def fire_sim():
-    maze = generate_maze(10, 0.3)
-    maze[2][2] = 2
-    fires = [(2, 2)]
-    for _ in range(6):
+    maze = generate_maze(4, 0.3)
+    fires = [start_fire(maze)]
+    for _ in range(2):
         print_maze(maze)
         print()
         maze, fires = tick_maze(maze, fires, 0.9)

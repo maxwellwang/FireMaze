@@ -1,8 +1,8 @@
-from util import *
+import time, random
 import matplotlib.pyplot as plt
 import concurrent.futures
-import time
-import random
+from util import *
+
 
 def problem1():
     maze = generate_maze(5, .2)
@@ -36,15 +36,16 @@ def problem2():
     plt.savefig('figure2.png')
     plt.show()
 
+
 def p2_trial(dim, p):
     maze = generate_maze(dim, p)
-    return check_reachable(maze, (0, 0), (dim - 1, dim - 1))
+    return dfs(maze, (0, 0), (dim - 1, dim - 1))
 
 def problem3():
     exec = concurrent.futures.ProcessPoolExecutor()
     dim = 75
     trials_per_p = 80
-    p_steps = 800
+    p_steps = 200
 
     t = time.time()
 
@@ -66,9 +67,11 @@ def problem3():
     plt.savefig('figure2.png')
     plt.show()
 
+
 def p3_trial(dim, p):
     maze = generate_maze(dim, p)
     return bfs(maze, (0, 0), (dim - 1, dim - 1)) - a_star(maze, (0, 0), (dim - 1, dim - 1))
+
 
 def problem4():
     exec = concurrent.futures.ProcessPoolExecutor()
@@ -91,11 +94,13 @@ def problem4():
     plt.savefig('figure4.png')
     plt.show()
 
+
 def p4_trial(dim, p):
     maze = generate_maze(dim, p)
     t = time.time()
     a_star(maze, (0, 0), (dim - 1, dim - 1))
     return (time.time() - t)
+
 
 def fire_sim():
     maze = generate_maze(4, 0.3)
@@ -108,6 +113,6 @@ def fire_sim():
 if __name__ == "__main__":
     # problem1()
     # problem2()
-    # problem3()
+    problem3()
     # problem4()
-    fire_sim()
+    # fire_sim()

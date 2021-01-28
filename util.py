@@ -1,6 +1,7 @@
 import random
 from collections import deque
 import heapq
+from copy import deepcopy
 import math
 '''
 Representation:
@@ -48,6 +49,34 @@ def generate_maze(dim, p):
     maze[0][0], maze[-1][-1] = 0, 0
     return maze
 
+def adj_cells(x, y):
+    dx, dy = [0, 0, -1, 1], [-1, 1, 0, 0]
+    for i in range(4):
+        yield (x + dx[i], y + dy[i])
+
+def tick_maze(maze, fires, q):
+    valid_cell = lambda x, y, dim: 0 <= x < dim and 0 <= y < dim
+    def count_fires(maze, x, y):
+        nonlocal valid_cell
+        num_fires = 0
+        for dx, dy in adj_cells(x, y):
+            if valid_cell(dx, dy, len(maze)) and maze[dx][dy] == 2:
+                num_fires += 1
+        return num_fires
+
+    new_fires = deepcopy(fires)
+    new_maze = deepcopy(maze)
+    visited = set()
+    for fire in fires:
+        for x, y in adj_cells(fire[0], fire[1]):
+            if valid_cell(x, y, len(maze)) and (x, y) not in visited and maze[x][y] == 0:
+                if random.random() <= 1 - math.pow(1-q, count_fires(maze, x, y)):
+                    new_maze[x][y] = 2
+                    new_fires.append((x, y))
+                visited.add((x, y))
+        if count_fires(new_maze, fire[0], fire[1]) == 4:
+            new_fires.remove(fire)
+    return (new_maze, new_fires)
 
 # maze: 2d list
 # current: current cell we want the neighbors of

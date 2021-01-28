@@ -97,9 +97,18 @@ def p4_trial(dim, p):
     a_star(maze, (0, 0), (dim - 1, dim - 1))
     return (time.time() - t)
 
+def fire_sim():
+    maze = generate_maze(10, 0.3)
+    maze[2][2] = 2
+    fires = [(2, 2)]
+    for _ in range(6):
+        print_maze(maze)
+        print()
+        maze, fires = tick_maze(maze, fires, 0.9)
 
 if __name__ == "__main__":
     # problem1()
     # problem2()
     # problem3()
-    problem4()
+    # problem4()
+    fire_sim()

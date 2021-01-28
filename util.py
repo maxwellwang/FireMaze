@@ -77,6 +77,7 @@ def generate_maze(dim, p):
 
     return maze
 
+
 def start_fire(maze):
     """
     Modifies input maze in place and starts a fire
@@ -207,6 +208,7 @@ def bfs(maze, s, g):
     # Return total number of cells BFS visited
     return num_visited
 
+
 def a_star(maze, s, g):
     """
     Given a maze, performs A* search algorithm starting from s
@@ -220,8 +222,10 @@ def a_star(maze, s, g):
     # h is the heuristic function, returning the Euclidean distance from f to g
     h = lambda f, g : math.sqrt(math.pow(f[0]-g[0], 2) + math.pow(f[1]-g[1], 2))
 
+    # h = lambda f, g: math.fabs(f[0]-g[0]) + math.fabs(f[1]-g[1]) # Taxicab distance
+
     # Have all cells be infinite distasnce away except for start cell
-    dist = [[float("inf") for _ in range(len(maze))] for _ in range(len(maze))]
+    dist = [[(float("inf")) for _ in range(len(maze))] for _ in range(len(maze))]
     dist[0][0] = 0
     num_visited = 0
     visited = {s}
@@ -231,7 +235,7 @@ def a_star(maze, s, g):
     # While cells are in fringe
     while fringe:
         # Take cell closest out of the heap
-        v_dist, v = heapq.heappop(fringe)
+        _, v = heapq.heappop(fringe)
         num_visited += 1
         # Break out if cell is goal cell
         if v == g:
@@ -240,11 +244,11 @@ def a_star(maze, s, g):
         for x, y in adj_cells(v):
             if (x, y) not in visited and valid_cell(x, y, maze):
                 visited.add(v)
-                new_dist = v_dist + 1 + h((x, y), g)
                 # If distance to neighbor cell through this cell is shorter, update distance in heap
-                if new_dist < dist[x][y]:
-                    dist[x][y] = new_dist
-                    heapq.heappush(fringe, (new_dist, (x, y)))
+                dist_v = dist[v[0]][v[1]]
+                if dist_v + 1 < dist[x][y]:
+                    dist[x][y] = dist_v + 1
+                    heapq.heappush(fringe, (dist_v + h((x, y), g), (x, y)))
 
     # Returns number of cells visited in A*
     return num_visited

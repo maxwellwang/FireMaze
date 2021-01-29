@@ -31,7 +31,7 @@ Helper lambda function to check cell is valid
 :param val: Value that a cell should be to be valid, default 0
 :return: Boolean of validity of cell
 """
-valid_cell = lambda x, y, maze, val = 0: 0 <= x < len(maze) and 0 <= y < len(maze) and maze[x][y] == val
+valid_cell = lambda x, y, maze, val = 0 : 0 <= x < len(maze) and 0 <= y < len(maze) and maze[x][y] == val
 
 
 def adj_cells(pair):
@@ -45,14 +45,27 @@ def adj_cells(pair):
         yield (pair[0] + dx[i], pair[1] + dy[i])
 
 
-def print_maze(maze):
+def print_maze(maze, agent = None):
     """
     :param maze: Maze to be printed
     :return: None
     """
-    for row in maze:
-        print(row)
 
+    if agent:
+        maze[agent[0]][agent[1]] = 3
+
+    symbols = {
+        0 : ".",
+        1 : "X",
+        2 : "F",
+        3 : "A"
+    }
+
+    for row in maze:
+        print(''.join(symbols[x] for x in row))
+
+    if agent:
+        maze[agent[0]][agent[1]] = 0
 
 def generate_maze(dim, p):
     """
@@ -87,10 +100,10 @@ def start_fire(maze):
 
     # Pick a random cell to spawn fire in
     dim = len(maze)
-    cell = random.randint(1, dim * dim - 1)
+    cell = random.randint(1, dim * dim - 2)
     # Ensure that cell is open (no obstacles)
     while maze[cell//dim][cell % dim] != 0:
-        cell = random.randint(1, dim * dim - 1)
+        cell = random.randint(1, dim * dim - 2)
     # Update cell with fire, then return
     maze[cell // dim][cell % dim] = 2
     return ((cell//dim, cell % dim))
@@ -209,7 +222,7 @@ def bfs(maze, s, g):
     return num_visited
 
 
-def a_star(maze, s, g):
+def a_star(maze, s, g, path = False):
     """
     Given a maze, performs A* search algorithm starting from s
     and checks if cell g is reachable. Return num visited cells.
@@ -226,11 +239,14 @@ def a_star(maze, s, g):
 
     # Have all cells be infinite distasnce away except for start cell
     dist = [[(float("inf")) for _ in range(len(maze))] for _ in range(len(maze))]
-    dist[0][0] = 0
+    dist[s[0]][s[1]] = 0
     num_visited = 0
     visited = {s}
     # Use a heap data structure for the fringe
     fringe = [(0, s)]
+
+    if path:
+        parent = [[(-1, -1) for _ in range(len(maze))] for _ in range(len(maze))]
 
     # While cells are in fringe
     while fringe:
@@ -248,7 +264,20 @@ def a_star(maze, s, g):
                 dist_v = dist[v[0]][v[1]]
                 if dist_v + 1 < dist[x][y]:
                     dist[x][y] = dist_v + 1
-                    heapq.heappush(fringe, (dist_v + h((x, y), g), (x, y)))
+                    if path:
+                        parent[x][y] = (v[0], v[1])
+                    heapq.heappush(fringe, (dist_v + 1 + h((x, y), g), (x, y)))
 
-    # Returns number of cells visited in A*
-    return num_visited
+    if path:
+        shortest_path = deque()
+        shortest_path.append(g)
+        prev = parent[g[0]][g[1]]
+        if prev == (-1, -1):
+            return None
+        while prev != s:
+            shortest_path.appendleft(prev)
+            prev = parent[prev[0]][prev[1]]
+        return shortest_path
+    else:
+        # Returns number of cells visited in A*
+        return num_visited

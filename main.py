@@ -102,60 +102,77 @@ def p4_trial(dim, p):
     a_star(maze, (0, 0), (dim - 1, dim - 1))
     return (time.time() - t)
 
+
 def problem6():
-    debug = True
-    base_maze = generate_maze(8, 0.2)
-    base_fires = [start_fire(base_maze)]
+    exec = concurrent.futures.ProcessPoolExecutor()
+    q_steps = 40
+    q_trials = 40
+    dim = 75
+
+    t = time.time()
+
+    x = [q / q_steps for q in range(q_steps)]
+    ys = [[0 for _ in range(q_steps)] for _ in range(3)]
+    h_map = {}
+    h = lambda f, g : math.sqrt(math.pow(f[0]-g[0], 2) + math.pow(f[1]-g[1], 2))
+    for i in range(75):
+        for j in range(75):
+            h_map[(i, j)] = h((i, j), (74, 74))
+
+    futures = {exec.submit(p6_trial, h_map = h_map, dim = dim, q = q / q_steps): q / q_steps for _ in range(q_trials) for q in range(q_steps)}
+    for f in concurrent.futures.as_completed(futures):
+        results = f.result()
+        for i in range(3):
+            ys[i][round(futures[f] * q_steps)] += results[i] / q_trials
+
+    print(time.time() - t)
+
+    plt.scatter(x, ys[0], s=[5 for _ in x], c="Red")
+    plt.scatter(x, ys[1], s=[5 for _ in x], c="Blue")
+    plt.scatter(x, ys[2], s=[5 for _ in x], c="Green")
+    plt.title('Figure 6')
+    plt.xlabel('Flammability Rate, q')
+    plt.ylabel('Success Rate')
+    plt.show()
+    plt.savefig('figure6.png')
 
 
-    maze, fires = deepcopy(base_maze), deepcopy(base_fires)
-    results = [-1] * 3
-    nexts = [(0, 0)] * 3
-    deqs = [a_star(maze, nexts[0], (len(maze) - 1, len(maze) - 1), path=True), None, None]
+def p6_trial(dim = 100, p = 0.3, q = 0.3, h_map = None, debug = False):
+    results, nexts, deqs = [-1] * 3, [(0, 0)] * 3, [None] * 3
+
+    while not deqs[0] or not deqs[1]:
+        maze = generate_maze(dim, p)
+        fires = [start_fire(maze)]
+        maze[fires[0][0]][fires[0][1]] = 0
+        deqs[0] = a_star(maze, nexts[0], (len(maze) - 1, len(maze) - 1), h_map = h_map, path=True)
+        deqs[1] = a_star(maze, nexts[1], fires[0], h_map = h_map, path=True)
+        maze[fires[0][0]][fires[0][1]] = 2
+
     while True:
+        deqs[1] = a_star(maze, nexts[1], (len(maze) - 1, len(maze) - 1), h_map = h_map, path=True)
+
+        maze, fires = tick_maze(maze, fires, q)
+
         if debug:
             print_maze(maze, nexts[1])
-        print (deqs[0], deqs[1])
-        if deqs[0]:
-            nexts[0] = deqs[0].popleft()
-            if maze[nexts[0][0]][nexts[0][1]] != 0:
-                results[0] = 0
-                deqs[0].clear()
+            print (deqs[0], deqs[1])
 
-        deqs[1] = a_star(maze, nexts[1], (len(maze) - 1, len(maze) - 1), path=True)
-        if deqs[1]:
-            nexts[1] = deqs[1].popleft()
+        for i in range(len(deqs)):
+            if deqs[i]:
+                nexts[i] = deqs[i].popleft()
+                if maze[nexts[i][0]][nexts[i][1]] != 0:
+                    results[i] = 0
+                    deqs[i].clear()
 
-        if not deqs[0] and not deqs[1]:
-            results[0] = 1 if nexts[0] == (len(maze) - 1, len(maze) - 1) else 0
-            results[1] = 1 if nexts[1] == (len(maze) - 1, len(maze) - 1) else 0
+        if not [deq for deq in deqs if deq]:
+            for i in range(len(results)):
+                results[i] = 1 if nexts[i] == (len(maze) - 1, len(maze) - 1) else 0
             break
 
-        maze, fires = tick_maze(maze, fires, 0.4)
         if debug:
             print (nexts[1])
 
-    print (results)
     return results
-
-
-
-    # maze, fires = deepcopy(base_maze), deepcopy(base_fires)
-    # next = (0, 0)
-    # result_two = 0
-    # while next:
-    #     if debug:
-    #         print_maze(maze, next)
-    #     deq = a_star(maze, next, (len(maze) - 1, len(maze) - 1), path=True)
-    #     if deq:
-    #         next = deq.popleft()
-    #     else:
-    #         if next == (len(maze) - 1, len(maze) - 1):
-    #             result_two = Tru1
-    #         break
-    #     if debug:
-    #         print(next)
-    #     maze, fires = tick_maze(maze, fires, 0.3)
 
 
 def fire_sim():

@@ -1,6 +1,5 @@
 import math, random, heapq
 from collections import deque
-from copy import deepcopy
 
 '''
 Representation:
@@ -40,7 +39,7 @@ def adj_cells(pair):
     :param pair: Coordinates of some cell
     :return: Generator which produces the four adjacent coordinates
     """
-    dx, dy = [0, 0, -1, 1], [-1, 1, 0, 0]
+    dx, dy = [0, -1, 0, 1], [-1, 0, 1, 0]
     for i in range(4):
         yield (pair[0] + dx[i], pair[1] + dy[i])
 
@@ -131,8 +130,8 @@ def tick_maze(maze, fires, q):
         return num_fires
 
     # Generate a copy of current fires and maze
-    new_fires = deepcopy(fires)
-    new_maze = deepcopy(maze)
+    new_fires = fires[:]
+    new_maze = [row[:] for row in maze]
     visited = set()
 
     # For each fire, we check its neighbors
@@ -222,7 +221,7 @@ def bfs(maze, s, g):
     return num_visited
 
 
-def a_star(maze, s, g, path = False):
+def a_star(maze, s, g, h_map, path = False):
     """
     Given a maze, performs A* search algorithm starting from s
     and checks if cell g is reachable. Return num visited cells.
@@ -232,21 +231,16 @@ def a_star(maze, s, g, path = False):
     :return: Integer of the number of visited cells
     """
 
-    # h is the heuristic function, returning the Euclidean distance from f to g
-    h = lambda f, g : math.sqrt(math.pow(f[0]-g[0], 2) + math.pow(f[1]-g[1], 2))
-
-    # h = lambda f, g: math.fabs(f[0]-g[0]) + math.fabs(f[1]-g[1]) # Taxicab distance
-
     # Have all cells be infinite distasnce away except for start cell
-    dist = [[(float("inf")) for _ in range(len(maze))] for _ in range(len(maze))]
+    parent = [[None for _ in maze] for _ in maze]
+    dist = [[(float("inf")) for _ in maze] for _ in maze]
+
     dist[s[0]][s[1]] = 0
     num_visited = 0
     visited = {s}
     # Use a heap data structure for the fringe
     fringe = [(0, s)]
 
-    if path:
-        parent = [[(-1, -1) for _ in range(len(maze))] for _ in range(len(maze))]
 
     # While cells are in fringe
     while fringe:
@@ -264,15 +258,14 @@ def a_star(maze, s, g, path = False):
                 dist_v = dist[v[0]][v[1]]
                 if dist_v + 1 < dist[x][y]:
                     dist[x][y] = dist_v + 1
-                    if path:
-                        parent[x][y] = (v[0], v[1])
-                    heapq.heappush(fringe, (dist_v + 1 + h((x, y), g), (x, y)))
+                    parent[x][y] = (v[0], v[1])
+                    heapq.heappush(fringe, (dist_v + 1 + h_map[(x, y)], (x, y)))
 
     if path:
         shortest_path = deque()
         shortest_path.append(g)
         prev = parent[g[0]][g[1]]
-        if prev == (-1, -1):
+        if prev == None:
             return None
         while prev != s:
             shortest_path.appendleft(prev)

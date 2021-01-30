@@ -1,4 +1,6 @@
-import math, random, heapq
+import heapq
+import math
+import random
 from collections import deque
 
 '''
@@ -7,20 +9,8 @@ Representation:
 - 0 means empty
 - 1 means occupied by obstacle
 - 2 means on fire
+- 3 means agent
 '''
-
-'''
-Problems:
-1: Maxwell - DONE
-2: Maxwell
-3: 
-4: 
-5: 
-6: 
-7: 
-8: 
-'''
-
 
 """
 Helper lambda function to check cell is valid
@@ -30,7 +20,8 @@ Helper lambda function to check cell is valid
 :param val: Value that a cell should be to be valid, default 0
 :return: Boolean of validity of cell
 """
-valid_cell = lambda x, y, maze, val = 0 : 0 <= x < len(maze) and 0 <= y < len(maze) and maze[x][y] == val
+valid_cell = lambda x, y, maze, fire_point=False, val=0: 0 <= x < len(maze) and 0 <= y < len(maze) and (
+    maze[x][y] == val if not fire_point else (maze[x][y] == val or maze[x][y] == 2))
 
 
 def adj_cells(pair):
@@ -44,7 +35,7 @@ def adj_cells(pair):
         yield (pair[0] + dx[i], pair[1] + dy[i])
 
 
-def print_maze(maze, agent = None):
+def print_maze(maze, agent=None):
     """
     :param maze: Maze to be printed
     :return: None
@@ -54,10 +45,10 @@ def print_maze(maze, agent = None):
         maze[agent[0]][agent[1]] = 3
 
     symbols = {
-        0 : ".",
-        1 : "X",
-        2 : "F",
-        3 : "A"
+        0: ".",
+        1: "X",
+        2: "F",
+        3: "A"
     }
 
     for row in maze:
@@ -65,6 +56,7 @@ def print_maze(maze, agent = None):
 
     if agent:
         maze[agent[0]][agent[1]] = 0
+
 
 def generate_maze(dim, p):
     """
@@ -101,11 +93,11 @@ def start_fire(maze):
     dim = len(maze)
     cell = random.randint(1, dim * dim - 2)
     # Ensure that cell is open (no obstacles)
-    while maze[cell//dim][cell % dim] != 0:
+    while maze[cell // dim][cell % dim] != 0:
         cell = random.randint(1, dim * dim - 2)
     # Update cell with fire, then return
     maze[cell // dim][cell % dim] = 2
-    return ((cell//dim, cell % dim))
+    return cell // dim, cell % dim
 
 
 def tick_maze(maze, fires, q):
@@ -116,6 +108,7 @@ def tick_maze(maze, fires, q):
     :param q: The flammability rate of the fire
     :return: Tuple containing the new maze and new set of fires
     """
+
     def count_fires(maze, fire):
         """
         Helper function to count fires surronding a cell
@@ -139,30 +132,77 @@ def tick_maze(maze, fires, q):
         for x, y in adj_cells(fire):
             # If the cell is open and we have not simulated it, simulate the fire spreading
             if valid_cell(x, y, maze) and (x, y) not in visited:
-                if random.random() <= 1 - math.pow(1-q, count_fires(maze, (x, y))):
+                if random.random() <= 1 - math.pow(1 - q, count_fires(maze, (x, y))):
                     # If fire spreads, update the new maze and new fires
                     new_maze[x][y] = 2
                     new_fires.append((x, y))
                 visited.add((x, y))
-        # If the cell we were checking is now surronded by four fires,
+        # If the cell we were checking is now surrounded by four fires,
         # it can no longer spread so we remove it from our list
         if count_fires(new_maze, fire) == 4:
             new_fires.remove(fire)
 
-    return (new_maze, new_fires)
+    return new_maze, new_fires
 
 
-def dfs(maze, s, g):
+def simp_tick_maze(maze, fires, q):
+    """
+    Simulates the fire spreading one step in some maze, but cell only predicted to be set
+    on fire if probability >= .5
+    :param maze: The maze to simulate fire in
+    :param fires: A set containing coordinates of every fire
+    :param q: The flammability rate of the fire
+    :return: Tuple containing the new maze and new set of fires
+    """
+
+    def count_fires(maze, fire):
+        """
+        Helper function to count fires surronding a cell
+        :param maze: Maze to count from
+        :param fire: Pair of coordinates of interest
+        :return: Number of fires surronding cell
+        """
+        num_fires = 0
+        for dx, dy in adj_cells(fire):
+            if valid_cell(dx, dy, maze, 2):
+                num_fires += 1
+        return num_fires
+
+    # Generate a copy of current fires and maze
+    new_fires = fires[:]
+    new_maze = [row[:] for row in maze]
+    visited = set()
+
+    # For each fire, we check its neighbors
+    for fire in fires:
+        for x, y in adj_cells(fire):
+            # If the cell is open and we have not simulated it, simulate the fire spreading
+            if valid_cell(x, y, maze) and (x, y) not in visited:
+                if 1 - math.pow(1 - q, count_fires(maze, (x, y))) >= .5:
+                    # If fire spreads, update the new maze and new fires
+                    new_maze[x][y] = 2
+                    new_fires.append((x, y))
+                visited.add((x, y))
+        # If the cell we were checking is now surrounded by four fires,
+        # it can no longer spread so we remove it from our list
+        if count_fires(new_maze, fire) == 4:
+            new_fires.remove(fire)
+
+    return new_maze, new_fires
+
+
+def dfs(maze, s, g, fire_point=False):
     """
     Given a maze, performs DFS search algorithm starting from s
     and checks if cell g is reachable
     :param maze: The particular maze to check
     :param s: Tuple of coordinates, the starting coordinate
     :param g: Tuple of coordinates, the goal coordinate
+    :param fire_point: If True, s or g is on fire and we should find shortest path anyways
     :return: Boolean on if G is reachable from S
     """
 
-    for c in s+g:
+    for c in s + g:
         if not 0 <= c < len(maze):
             print("Coordinates out of bound")
             return
@@ -174,13 +214,13 @@ def dfs(maze, s, g):
     # While still cells to check, loop
     while fringe:
         current = fringe.pop()
+        visited.add(current)
         # If cell is goal, then return True
         if current == g:
             return True
         # Check neighboring cells. If not visited and valid, add to fringe
         for x, y in adj_cells(current):
-            if (x, y) not in visited and valid_cell(x, y, maze):
-                visited.add((x, y))
+            if (x, y) not in visited and valid_cell(x, y, maze, fire_point=True):
                 fringe.append((x, y))
 
     # Goal cell not found and fringe is empty, return False
@@ -196,6 +236,11 @@ def bfs(maze, s, g):
     :param g: Tuple of coordinates, the goal coordinate
     :return: Integer of the number of visited cells
     """
+
+    for c in s + g:
+        if not 0 <= c < len(maze):
+            print("Coordinates out of bound")
+            return
 
     # Use a deque to act as a queue for BFS
     fringe, visited = deque(), set()
@@ -221,7 +266,7 @@ def bfs(maze, s, g):
     return num_visited
 
 
-def a_star(maze, s, g, h_map, path = False):
+def a_star(maze, s, g, h_map, path=False):
     """
     Given a maze, performs A* search algorithm starting from s
     and checks if cell g is reachable. Return num visited cells.
@@ -231,7 +276,12 @@ def a_star(maze, s, g, h_map, path = False):
     :return: Integer of the number of visited cells
     """
 
-    # Have all cells be infinite distasnce away except for start cell
+    for c in s + g:
+        if not 0 <= c < len(maze):
+            print("Coordinates out of bound")
+            return
+
+    # Have all cells be infinite distance away except for start cell
     parent = [[None for _ in maze] for _ in maze]
     dist = [[(float("inf")) for _ in maze] for _ in maze]
 
@@ -240,7 +290,6 @@ def a_star(maze, s, g, h_map, path = False):
     visited = {s}
     # Use a heap data structure for the fringe
     fringe = [(0, s)]
-
 
     # While cells are in fringe
     while fringe:
@@ -274,3 +323,35 @@ def a_star(maze, s, g, h_map, path = False):
     else:
         # Returns number of cells visited in A*
         return num_visited
+
+
+def simp(maze, s, g, h_map, fires, q):
+    """
+    Simulated Ideal Maze Premove
+    Given a maze, simulates next maze state after fire tick and uses a_star algorithm to
+    calculate best premove. If invalid, then default to using a_star on current maze state.
+    :param maze: The particular maze to check
+    :param s: Tuple of coordinates, the starting coordinate
+    :param g: Tuple of coordinates, the goal coordinate
+    :param h_map: Heuristic
+    :param fires: A set containing coordinates of every fire
+    :param q: The flammability rate of the fire
+    :return: Next best move or None if no moves left
+    """
+
+    for c in s + g:
+        if not 0 <= c < len(maze):
+            print("Coordinates out of bound")
+            return
+    sim_maze = simp_tick_maze(maze, fires, q)[0]
+    result = a_star(sim_maze, s, g, h_map, path=True)
+    if result:
+        return result[0]
+    else:
+        # no path to goal in sim_maze, default to current maze shortest path
+        result = a_star(maze, s, g, h_map, path=True)
+        if result:
+            return result[0]
+        else:
+            # no path in current maze either
+            return None

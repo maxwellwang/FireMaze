@@ -1,4 +1,5 @@
-import time, random
+import time
+import random
 import matplotlib.pyplot as plt
 import concurrent.futures
 from copy import deepcopy
@@ -18,14 +19,15 @@ def problem2():
 
     t = time.time()
 
-    x = [p/p_steps for p in range(p_steps)]
+    x = [p / p_steps for p in range(p_steps)]
     y = [0 for _ in range(p_steps)]
 
-    futures = {exec.submit(p2_trial, dim, p/p_steps) : p/p_steps for _ in range(trials_per_p) for p in range(p_steps)}
+    futures = {exec.submit(p2_trial, dim, p / p_steps): p / p_steps for _ in range(trials_per_p) for p in
+               range(p_steps)}
     for f in concurrent.futures.as_completed(futures):
         if f.result():
             y[round(futures[f] * p_steps)] += 1
-    y = [i/trials_per_p for i in y]
+    y = [i / trials_per_p for i in y]
 
     print(time.time() - t)
 
@@ -42,6 +44,7 @@ def p2_trial(dim, p):
     maze = generate_maze(dim, p)
     return dfs(maze, (0, 0), (dim - 1, dim - 1))
 
+
 def problem3():
     exec = concurrent.futures.ProcessPoolExecutor()
     dim = 75
@@ -53,7 +56,8 @@ def problem3():
     x = [p / p_steps for p in range(p_steps)]
     y = [0 for _ in range(p_steps)]
     for k in range(10):
-        futures = {exec.submit(p3_trial, dim, p / p_steps): p / p_steps for _ in range(trials_per_p) for p in range(p_steps//2)}
+        futures = {exec.submit(p3_trial, dim, p / p_steps): p / p_steps for _ in range(trials_per_p) for p in
+                   range(p_steps // 2)}
         for f in concurrent.futures.as_completed(futures):
             y[round(futures[f] * p_steps)] += f.result()
     y = [i / trials_per_p / k for i in y]
@@ -80,12 +84,12 @@ def problem4():
     t = time.time()
 
     x, y = [], []
-    futures = {exec.submit(p4_trial, dim*1000, 0.3): dim*1000 for _ in range(100) for dim in range(1, 5)}
+    futures = {exec.submit(p4_trial, dim * 1000, 0.3): dim * 1000 for _ in range(100) for dim in range(1, 5)}
     for f in concurrent.futures.as_completed(futures):
-        x.append(futures[f]*1000)
+        x.append(futures[f] * 1000)
         y.append(f.result())
 
-    print (time.time() - t)
+    print(time.time() - t)
 
     # plt.plot(x, y)
     plt.scatter(x, y, s=[1 for _ in x])
@@ -103,6 +107,37 @@ def p4_trial(dim, p):
     return (time.time() - t)
 
 
+def problem5():
+    dim = 4
+    p = .2
+    maze = generate_maze(dim, p)
+    fires = [start_fire(maze)]
+    current = (0, 0)
+    while not dfs(maze, current, (dim - 1, dim - 1)) or not dfs(maze, current, fires[0], fire_point=True):
+        maze = generate_maze(dim, p)
+        fires = [start_fire(maze)]
+    h_map = {}
+    h = lambda f, g: math.sqrt(math.pow(f[0] - g[0], 2) + math.pow(f[1] - g[1], 2))
+    for i in range(dim):
+        for j in range(dim):
+            h_map[(i, j)] = h((i, j), (dim - 1, dim - 1))
+    while current != (dim - 1, dim - 1):
+        print_maze(maze, agent=current)
+        current = simp(maze, current, (dim - 1, dim - 1), h_map, fires, 0.5)
+        if not current:
+            print('Out of moves')
+            return
+        print('Agent moves to ' + str(current))
+        print_maze(maze, agent=current)
+        print('Fire advances')
+        maze, fires = tick_maze(maze, fires, 0.9)
+        if current in fires:
+            print('Agent set on fire')
+            return
+    print_maze(maze, current)
+    print('Successful escape')
+    return 0
+
 def problem6():
     exec = concurrent.futures.ProcessPoolExecutor()
     q_steps = 40
@@ -114,12 +149,13 @@ def problem6():
     x = [q / q_steps for q in range(q_steps)]
     ys = [[0 for _ in range(q_steps)] for _ in range(3)]
     h_map = {}
-    h = lambda f, g : math.sqrt(math.pow(f[0]-g[0], 2) + math.pow(f[1]-g[1], 2))
+    h = lambda f, g: math.sqrt(math.pow(f[0] - g[0], 2) + math.pow(f[1] - g[1], 2))
     for i in range(75):
         for j in range(75):
             h_map[(i, j)] = h((i, j), (74, 74))
 
-    futures = {exec.submit(p6_trial, h_map = h_map, dim = dim, q = q / q_steps): q / q_steps for _ in range(q_trials) for q in range(q_steps)}
+    futures = {exec.submit(p6_trial, h_map=h_map, dim=dim, q=q / q_steps): q / q_steps for _ in range(q_trials) for q in
+               range(q_steps)}
     for f in concurrent.futures.as_completed(futures):
         results = f.result()
         for i in range(3):
@@ -133,29 +169,29 @@ def problem6():
     plt.title('Figure 6')
     plt.xlabel('Flammability Rate, q')
     plt.ylabel('Success Rate')
-    plt.show()
     plt.savefig('figure6.png')
+    plt.show()
 
 
-def p6_trial(dim = 100, p = 0.3, q = 0.3, h_map = None, debug = False):
+def p6_trial(dim=100, p=0.3, q=0.3, h_map=None, debug=False):
     results, nexts, deqs = [-1] * 3, [(0, 0)] * 3, [None] * 3
 
     while not deqs[0] or not deqs[1]:
         maze = generate_maze(dim, p)
         fires = [start_fire(maze)]
         maze[fires[0][0]][fires[0][1]] = 0
-        deqs[0] = a_star(maze, nexts[0], (len(maze) - 1, len(maze) - 1), h_map = h_map, path=True)
-        deqs[1] = a_star(maze, nexts[1], fires[0], h_map = h_map, path=True)
+        deqs[0] = a_star(maze, nexts[0], (len(maze) - 1, len(maze) - 1), h_map=h_map, path=True)
+        deqs[1] = a_star(maze, nexts[1], fires[0], h_map=h_map, path=True)
         maze[fires[0][0]][fires[0][1]] = 2
 
     while True:
-        deqs[1] = a_star(maze, nexts[1], (len(maze) - 1, len(maze) - 1), h_map = h_map, path=True)
+        deqs[1] = a_star(maze, nexts[1], (len(maze) - 1, len(maze) - 1), h_map=h_map, path=True)
 
         maze, fires = tick_maze(maze, fires, q)
 
         if debug:
             print_maze(maze, nexts[1])
-            print (deqs[0], deqs[1])
+            print(deqs[0], deqs[1])
 
         for i in range(len(deqs)):
             if deqs[i]:
@@ -170,7 +206,7 @@ def p6_trial(dim = 100, p = 0.3, q = 0.3, h_map = None, debug = False):
             break
 
         if debug:
-            print (nexts[1])
+            print(nexts[1])
 
     return results
 
@@ -183,10 +219,14 @@ def fire_sim():
         print()
         maze, fires = tick_maze(maze, fires, 0.9)
 
+
 if __name__ == "__main__":
     # problem1()
     # problem2()
     # problem3()
     # problem4()
     # fire_sim()
-    problem6()
+    while True:
+        problem5()
+        print()
+    # problem6()

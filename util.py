@@ -2,6 +2,7 @@ import heapq
 import math
 import random
 from collections import deque
+from copy import deepcopy
 
 '''
 Representation:
@@ -32,7 +33,7 @@ def adj_cells(pair):
     """
     dx, dy = [0, -1, 0, 1], [-1, 0, 1, 0]
     for i in range(4):
-        yield (pair[0] + dx[i], pair[1] + dy[i])
+        yield pair[0] + dx[i], pair[1] + dy[i]
 
 
 def print_maze(maze, agent=None):
@@ -145,50 +146,33 @@ def tick_maze(maze, fires, q):
     return new_maze, new_fires
 
 
-def simp_tick_maze(maze, fires, q):
+def move_analysis(maze, q, current):
     """
-    Simulates the fire spreading one step in some maze, but cell only predicted to be set
-    on fire if probability >= .5
+    Calculates probabilities of agent's neighboring cells setting on fire
     :param maze: The maze to simulate fire in
-    :param fires: A set containing coordinates of every fire
     :param q: The flammability rate of the fire
-    :return: Tuple containing the new maze and new set of fires
+    :param current: Agent's current location
+    :return: Set of tuples containing possible moves and probability of each move resulting in immolation
     """
 
-    def count_fires(maze, fire):
+    def count_fires(maze, cell):
         """
-        Helper function to count fires surronding a cell
+        Helper function to count fires surrounding a cell
         :param maze: Maze to count from
-        :param fire: Pair of coordinates of interest
-        :return: Number of fires surronding cell
+        :param cell: Pair of coordinates of interest
+        :return: Number of fires surrounding cell
         """
         num_fires = 0
-        for dx, dy in adj_cells(fire):
-            if valid_cell(dx, dy, maze, 2):
+        for x, y in adj_cells(cell):
+            if valid_cell(x, y, maze, val=2):
                 num_fires += 1
         return num_fires
 
-    # Generate a copy of current fires and maze
-    new_fires = fires[:]
-    new_maze = [row[:] for row in maze]
-    visited = set()
-
-    # For each fire, we check its neighbors
-    for fire in fires:
-        for x, y in adj_cells(fire):
-            # If the cell is open and we have not simulated it, simulate the fire spreading
-            if valid_cell(x, y, maze) and (x, y) not in visited:
-                if 1 - math.pow(1 - q, count_fires(maze, (x, y))) >= .5:
-                    # If fire spreads, update the new maze and new fires
-                    new_maze[x][y] = 2
-                    new_fires.append((x, y))
-                visited.add((x, y))
-        # If the cell we were checking is now surrounded by four fires,
-        # it can no longer spread so we remove it from our list
-        if count_fires(new_maze, fire) == 4:
-            new_fires.remove(fire)
-
-    return new_maze, new_fires
+    moves = set()
+    for x, y in adj_cells(current):
+        if valid_cell(x, y, maze):
+            moves.add(((x, y), 1 - math.pow(1 - q, count_fires(maze, (x, y)))))
+    return moves
 
 
 def dfs(maze, s, g, fire_point=False):
@@ -220,7 +204,7 @@ def dfs(maze, s, g, fire_point=False):
             return True
         # Check neighboring cells. If not visited and valid, add to fringe
         for x, y in adj_cells(current):
-            if (x, y) not in visited and valid_cell(x, y, maze, fire_point=True):
+            if (x, y) not in visited and valid_cell(x, y, maze, fire_point):
                 fringe.append((x, y))
 
     # Goal cell not found and fringe is empty, return False
@@ -314,7 +298,7 @@ def a_star(maze, s, g, h_map, path=False):
         shortest_path = deque()
         shortest_path.append(g)
         prev = parent[g[0]][g[1]]
-        if prev == None:
+        if prev is None:
             return None
         while prev != s:
             shortest_path.appendleft(prev)
@@ -325,11 +309,10 @@ def a_star(maze, s, g, h_map, path=False):
         return num_visited
 
 
-def simp(maze, s, g, h_map, fires, q):
+def acronym(maze, s, g, h_map, fires, q):
     """
-    Simulated Ideal Maze Premove
-    Given a maze, simulates next maze state after fire tick and uses a_star algorithm to
-    calculate best premove. If invalid, then default to using a_star on current maze state.
+    Calculates probability of cells neighboring agent to set on fire, then picks safest cell
+    as next move. If there is a tie, use a* to see which path is shorter.
     :param maze: The particular maze to check
     :param s: Tuple of coordinates, the starting coordinate
     :param g: Tuple of coordinates, the goal coordinate
@@ -341,17 +324,34 @@ def simp(maze, s, g, h_map, fires, q):
 
     for c in s + g:
         if not 0 <= c < len(maze):
-            print("Coordinates out of bound")
+            print('Coordinates out of bound')
             return
-    sim_maze = simp_tick_maze(maze, fires, q)[0]
-    result = a_star(sim_maze, s, g, h_map, path=True)
-    if result:
-        return result[0]
-    else:
-        # no path to goal in sim_maze, default to current maze shortest path
-        result = a_star(maze, s, g, h_map, path=True)
-        if result:
-            return result[0]
-        else:
-            # no path in current maze either
-            return None
+    if not dfs(maze, s, g):
+        print('No path to goal anymore')
+        return None
+    moves = move_analysis(maze, q, s)  # each element in moves looks like ((x, y), prob of fire next tick)
+    min_prob = 1.0
+    for move in moves:
+        prob = move[1]
+        if prob < min_prob:
+            min_prob = prob
+    safest_moves = set()
+    for move in moves:
+        prob = move[1]
+        # cell must have lowest prob of setting on fire out of agent's options
+        if prob == min_prob:
+            # check if the move can get to goal without going back to current cell
+            temp_maze = deepcopy(maze)
+            temp_maze[s[0]][s[1]] = 1
+            if dfs(temp_maze, move[0], g):
+                safest_moves.add(move[0])
+    if len(safest_moves) == 1:
+        return safest_moves.pop()
+    max_distance = math.sqrt(math.pow(len(maze), 2) * 2)
+    best_move = None
+    for move in safest_moves:
+        distance = h_map[move]
+        if distance < max_distance:
+            best_move = move
+            max_distance = distance
+    return best_move

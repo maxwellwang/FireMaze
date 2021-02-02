@@ -104,12 +104,13 @@ def p4_trial(dim, p):
     maze = generate_maze(dim, p)
     t = time.time()
     a_star(maze, (0, 0), (dim - 1, dim - 1))
-    return (time.time() - t)
+    return time.time() - t
 
 
 def problem5():
-    dim = 4
+    dim = 5
     p = .2
+    q = .1
     maze = generate_maze(dim, p)
     fires = [start_fire(maze)]
     current = (0, 0)
@@ -121,22 +122,23 @@ def problem5():
     for i in range(dim):
         for j in range(dim):
             h_map[(i, j)] = h((i, j), (dim - 1, dim - 1))
-    while current != (dim - 1, dim - 1):
+    while True:
         print_maze(maze, agent=current)
-        current = simp(maze, current, (dim - 1, dim - 1), h_map, fires, 0.5)
+        current = acronym(maze, current, (dim - 1, dim - 1), h_map, fires, q)
         if not current:
             print('Out of moves')
-            return
+            return 1
         print('Agent moves to ' + str(current))
         print_maze(maze, agent=current)
+        if current == (dim - 1, dim - 1):
+            print('Successful escape')
+            return 0
         print('Fire advances')
-        maze, fires = tick_maze(maze, fires, 0.9)
+        maze, fires = tick_maze(maze, fires, q)
         if current in fires:
             print('Agent set on fire')
-            return
-    print_maze(maze, current)
-    print('Successful escape')
-    return 0
+            return 1
+
 
 def problem6():
     exec = concurrent.futures.ProcessPoolExecutor()
@@ -226,7 +228,5 @@ if __name__ == "__main__":
     # problem3()
     # problem4()
     # fire_sim()
-    while True:
-        problem5()
-        print()
+    problem5()
     # problem6()

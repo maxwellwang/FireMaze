@@ -233,6 +233,10 @@ def a_star(maze, s, g, h_map, path=False):
         if not 0 <= c < len(maze):
             return
 
+    temp = deepcopy(maze)
+    temp[s[0]][s[1]] = 0
+    temp[g[0]][g[1]] = 0
+
     # Have all cells be infinite distance away except for start cell
     parent = [[None for _ in maze] for _ in maze]
     dist = [[(float("inf")) for _ in maze] for _ in maze]
@@ -251,12 +255,12 @@ def a_star(maze, s, g, h_map, path=False):
         # Break out if cell is goal cell
         if v == g:
             break
+        dist_v = dist[v[0]][v[1]]
         # Check neighbors of the cell
         for x, y in adj_cells(v):
-            if (x, y) not in visited and valid_cell(x, y, maze):
+            if (x, y) not in visited and valid_cell(x, y, temp):
                 visited.add(v)
                 # If distance to neighbor cell through this cell is shorter, update distance in heap
-                dist_v = dist[v[0]][v[1]]
                 if dist_v + 1 < dist[x][y]:
                     dist[x][y] = dist_v + 1
                     parent[x][y] = (v[0], v[1])
@@ -277,15 +281,17 @@ def a_star(maze, s, g, h_map, path=False):
         return num_visited
 
 
-def FIRE(maze, s, g, h_map, fires):
+def FIRE(maze, s, g, h_map, f_map, fire_location):
     """
     Future Imminent Risk Evaluation
-    Similar to a* but now priority will be distance from goal - distance from fire.
+    Similar to a* but now priority will be euclidean distance from goal - euclidean distance from fire.
+    Need a* to optimize path at the end. And if fire threatens every path to goal, just use a*.
     :param maze: The particular maze to check
     :param s: Tuple of coordinates, the starting coordinate
     :param g: Tuple of coordinates, the goal coordinate
-    :param h_map: Heuristic
-    :param fires: A set containing coordinates of every fire
+    :param h_map: Euclidean distances to goal
+    :param f_map: Euclidean distances to fire
+    :param fire_location: Coordinates of initial fire
     :return: Path to goal that moves towards goal while staying away from fire
     """
 
@@ -296,7 +302,6 @@ def FIRE(maze, s, g, h_map, fires):
         return None
 
     parent = [[None for _ in maze] for _ in maze]
-    fire_location = fires[0]
 
     visited = {s}
     # Use a heap data structure for the fringe
@@ -304,31 +309,38 @@ def FIRE(maze, s, g, h_map, fires):
 
     # While cells are in fringe
     ptr = (0, 0)
+    tr_ptr = (-1, -1)
     while v != g:
         # Check neighbors of the cell and pick highest_priority cell,
         # meaning lowest (distance from goal - distance from fire)
         lowest_priority = math.sqrt(2 * math.pow(len(maze), 2))
-        move_options = set()
-        temp = deepcopy(maze)
-        temp[v[0]][v[1]] = 1
         for x, y in adj_cells(v):
+            temp = deepcopy(maze)
+            temp[v[0]][v[1]] = 1
             if (x, y) not in visited and valid_cell(x, y, maze) and dfs(temp, (x, y), g):
                 visited.add(v)
-                move_options.add(v)
-                priority = h_map[(x, y)] - math.sqrt(
-                    math.pow(fire_location[0] - x, 2) + math.pow(fire_location[1] - y, 2))
+                priority = h_map[(x, y)] / f_map[(x, y)]
                 if priority < lowest_priority:
                     lowest_priority = priority
                     ptr = (x, y)
         parent[ptr[0]][ptr[1]] = (v[0], v[1])
+        if v == tr_ptr:
+            # algorithm stuck because fire threatens every path to goal, use a*
+            return a_star(maze, s, g, h_map, path=True)
+        tr_ptr = v
         v = ptr
 
     path = deque()
     path.append(g)
     prev = parent[g[0]][g[1]]
-    if prev is None:
-        return None
     while prev != s:
         path.appendleft(prev)
         prev = parent[prev[0]][prev[1]]
-    return path
+    temp = deepcopy(maze)
+    # block off routes that path has not chosen
+    for x, y in adj_cells(fire_location):
+        if valid_cell(x, y, maze) and (x, y) not in path:
+            temp[x][y] = 1
+    # let a* optimize path without changing general direction
+    a_path = a_star(temp, s, g, h_map, path=True)
+    return a_path

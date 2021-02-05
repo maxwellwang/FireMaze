@@ -109,8 +109,8 @@ def p4_trial(dim, p):
 
 def problem5():
     dim = 5
-    p = .2
-    q = .2
+    p = 0.2
+    q = 0.2
     maze = generate_maze(dim, p)
     fires = [start_fire(maze)]
     current = (0, 0)
@@ -122,23 +122,27 @@ def problem5():
     for i in range(dim):
         for j in range(dim):
             h_map[(i, j)] = h((i, j), (dim - 1, dim - 1))
-    path = FIRE(maze, current, (dim - 1, dim - 1), h_map, fires)
+    f_map = {}
+    for i in range(dim):
+        for j in range(dim):
+            f_map[(i, j)] = h((i, j), fires[0])
+    path = FIRE(maze, current, (dim - 1, dim - 1), h_map, f_map, fires[0])
     while True:
         print_maze(maze, agent=current)
-        if not dfs(maze, current, (dim - 1, dim - 1)):
+        if not dfs(maze, current, (dim - 1, dim - 1)) or maze[dim - 1][dim - 1] == 2:
             print('No path to goal left')
             return 1
         current = path.popleft()
         if not current:
             return 1
         print('Agent moves to ' + str(current))
-        print_maze(maze, agent=current)
         if current == (dim - 1, dim - 1):
+            print_maze(maze, agent=current)
             print('Successful escape')
             return 0
-        print('Fire advances')
         maze, fires = tick_maze(maze, fires, q)
         if current in fires:
+            print_maze(maze)
             print('Agent set on fire')
             return 1
 

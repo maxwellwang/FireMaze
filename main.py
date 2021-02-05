@@ -107,16 +107,8 @@ def p4_trial(dim, p):
     return time.time() - t
 
 
-def problem5():
-    dim = 5
-    p = 0.2
-    q = 0.2
-    maze = generate_maze(dim, p)
-    fires = [start_fire(maze)]
+def strategy3(maze, fires):
     current = (0, 0)
-    while not dfs(maze, current, (dim - 1, dim - 1)) or not dfs(maze, current, fires[0]):
-        maze = generate_maze(dim, p)
-        fires = [start_fire(maze)]
     h_map = {}
     h = lambda f, g: math.sqrt(math.pow(f[0] - g[0], 2) + math.pow(f[1] - g[1], 2))
     for i in range(dim):
@@ -129,9 +121,6 @@ def problem5():
     path = SPARK(maze, current, (dim - 1, dim - 1), h_map, f_map, fires[0])
     while True:
         print_maze(maze, agent=current)
-        if not dfs(maze, current, (dim - 1, dim - 1)) or maze[dim - 1][dim - 1] == 2:
-            print('No path to goal left')
-            return 1
         current = path.popleft()
         if not current:
             return 1
@@ -145,6 +134,16 @@ def problem5():
             print_maze(maze)
             print('Agent set on fire')
             return 1
+        if not dfs(maze, current, (dim - 1, dim - 1)) or maze[dim - 1][dim - 1] == 2:
+            print('No path to goal left')
+            return 1
+        for fire in fires:
+            if fire in path:
+                print('fires: '+str(fires))
+                print('old path: ' + str(path))
+                path = SPARK(maze, current, (dim-1, dim-1), h_map, f_map, fire)
+                print('new path: ' + str(path))
+                exit(0)
 
 
 def problem6():
@@ -235,5 +234,14 @@ if __name__ == "__main__":
     # problem3()
     # problem4()
     # fire_sim()
-    problem5()
+    dim = 5
+    p = .3
+    q = .2
+    while True:
+        maze = generate_maze(dim, p)
+        fires = [start_fire(maze)]
+        while not dfs(maze, (0, 0), (dim - 1, dim - 1)) or not dfs(maze, (0, 0), fires[0]):
+            maze = generate_maze(dim, p)
+            fires = [start_fire(maze)]
+        strategy3(maze, fires)
     # problem6()

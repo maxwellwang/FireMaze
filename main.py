@@ -135,15 +135,16 @@ def strategy3(maze, fires):
             print('Agent set on fire')
             return 1
         if not dfs(maze, current, (dim - 1, dim - 1)) or maze[dim - 1][dim - 1] == 2:
+            print_maze(maze, agent=current)
             print('No path to goal left')
             return 1
         for fire in fires:
             if fire in path:
-                print('fires: '+str(fires))
-                print('old path: ' + str(path))
-                path = SPARK(maze, current, (dim-1, dim-1), h_map, f_map, fire)
-                print('new path: ' + str(path))
-                exit(0)
+                f_map = {}
+                for i in range(dim):
+                    for j in range(dim):
+                        f_map[(i, j)] = h((i, j), fire)
+                path = SPARK(maze, current, (dim - 1, dim - 1), h_map, f_map, fire)
 
 
 def problem6():
@@ -237,11 +238,10 @@ if __name__ == "__main__":
     dim = 5
     p = .3
     q = .2
-    while True:
+    maze = generate_maze(dim, p)
+    fires = [start_fire(maze)]
+    while not dfs(maze, (0, 0), (dim - 1, dim - 1)) or not dfs(maze, (0, 0), fires[0]):
         maze = generate_maze(dim, p)
         fires = [start_fire(maze)]
-        while not dfs(maze, (0, 0), (dim - 1, dim - 1)) or not dfs(maze, (0, 0), fires[0]):
-            maze = generate_maze(dim, p)
-            fires = [start_fire(maze)]
-        strategy3(maze, fires)
+    strategy3(maze, fires)
     # problem6()

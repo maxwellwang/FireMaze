@@ -286,7 +286,6 @@ def SPARK(maze, s, g, h_map, f_map, fire_location):
     Safest Path According to Risk Knowledge
     Similar to a* but now priority will be euclidean distance from goal - euclidean distance from single fire.
     Need a* to optimize path at the end. And if single fire threatens every path to goal, just use a*.
-    This function is called in the beginning, and called again if a new fire ignites in the planned path.
     :param maze: The particular maze to check
     :param s: Tuple of coordinates, the starting coordinate
     :param g: Tuple of coordinates, the goal coordinate

@@ -21,8 +21,7 @@ Helper lambda function to check cell is valid
 :param val: Value that a cell should be to be valid, default 0
 :return: Boolean of validity of cell
 """
-valid_cell = lambda x, y, maze, fire_point=False, val=0: 0 <= x < len(maze) and 0 <= y < len(maze) and (
-    maze[x][y] == val if not fire_point else (maze[x][y] == val or maze[x][y] == 2))
+valid_cell = lambda x, y, maze, val=0: 0 <= x < len(maze) and 0 <= y < len(maze) and maze[x][y] == val
 
 
 def adj_cells(pair):
@@ -68,11 +67,9 @@ def generate_maze(dim, p):
 
     # Validate dim
     if dim <= 0 or not isinstance(dim, int):
-        print('dim should be positive integer')
         return
     # Validate p
     if not 0 <= p <= 1:
-        print('p should be float where 0 < p < 1')
         return
 
     # Generate maze object, spawning obstacles with probability p
@@ -119,7 +116,7 @@ def tick_maze(maze, fires, q):
         """
         num_fires = 0
         for dx, dy in adj_cells(fire):
-            if valid_cell(dx, dy, maze, 2):
+            if valid_cell(dx, dy, maze, val=2):
                 num_fires += 1
         return num_fires
 
@@ -146,50 +143,23 @@ def tick_maze(maze, fires, q):
     return new_maze, new_fires
 
 
-def move_analysis(maze, q, current):
-    """
-    Calculates probabilities of agent's neighboring cells setting on fire
-    :param maze: The maze to simulate fire in
-    :param q: The flammability rate of the fire
-    :param current: Agent's current location
-    :return: Set of tuples containing possible moves and probability of each move resulting in immolation
-    """
-
-    def count_fires(maze, cell):
-        """
-        Helper function to count fires surrounding a cell
-        :param maze: Maze to count from
-        :param cell: Pair of coordinates of interest
-        :return: Number of fires surrounding cell
-        """
-        num_fires = 0
-        for x, y in adj_cells(cell):
-            if valid_cell(x, y, maze, val=2):
-                num_fires += 1
-        return num_fires
-
-    moves = set()
-    for x, y in adj_cells(current):
-        if valid_cell(x, y, maze):
-            moves.add(((x, y), 1 - math.pow(1 - q, count_fires(maze, (x, y)))))
-    return moves
-
-
-def dfs(maze, s, g, fire_point=False):
+def dfs(maze, s, g):
     """
     Given a maze, performs DFS search algorithm starting from s
     and checks if cell g is reachable
     :param maze: The particular maze to check
     :param s: Tuple of coordinates, the starting coordinate
     :param g: Tuple of coordinates, the goal coordinate
-    :param fire_point: If True, s or g is on fire and we should find shortest path anyways
     :return: Boolean on if G is reachable from S
     """
 
     for c in s + g:
         if not 0 <= c < len(maze):
-            print("Coordinates out of bound")
             return
+
+    temp = deepcopy(maze)
+    temp[s[0]][s[1]] = 0
+    temp[g[0]][g[1]] = 0
 
     # Generate stack structure for fringe, set for visited
     fringe = [s]
@@ -204,7 +174,7 @@ def dfs(maze, s, g, fire_point=False):
             return True
         # Check neighboring cells. If not visited and valid, add to fringe
         for x, y in adj_cells(current):
-            if (x, y) not in visited and valid_cell(x, y, maze, fire_point):
+            if (x, y) not in visited and valid_cell(x, y, temp):
                 fringe.append((x, y))
 
     # Goal cell not found and fringe is empty, return False
@@ -223,7 +193,6 @@ def bfs(maze, s, g):
 
     for c in s + g:
         if not 0 <= c < len(maze):
-            print("Coordinates out of bound")
             return
 
     # Use a deque to act as a queue for BFS
@@ -262,7 +231,6 @@ def a_star(maze, s, g, h_map, path=False):
 
     for c in s + g:
         if not 0 <= c < len(maze):
-            print("Coordinates out of bound")
             return
 
     # Have all cells be infinite distance away except for start cell
@@ -309,49 +277,58 @@ def a_star(maze, s, g, h_map, path=False):
         return num_visited
 
 
-def acronym(maze, s, g, h_map, fires, q):
+def FIRE(maze, s, g, h_map, fires):
     """
-    Calculates probability of cells neighboring agent to set on fire, then picks safest cell
-    as next move. If there is a tie, use a* to see which path is shorter.
+    Future Imminent Risk Evaluation
+    Similar to a* but now priority will be distance from goal - distance from fire.
     :param maze: The particular maze to check
     :param s: Tuple of coordinates, the starting coordinate
     :param g: Tuple of coordinates, the goal coordinate
     :param h_map: Heuristic
     :param fires: A set containing coordinates of every fire
-    :param q: The flammability rate of the fire
-    :return: Next best move or None if no moves left
+    :return: Path to goal that moves towards goal while staying away from fire
     """
 
     for c in s + g:
         if not 0 <= c < len(maze):
-            print('Coordinates out of bound')
             return
     if not dfs(maze, s, g):
-        print('No path to goal anymore')
         return None
-    moves = move_analysis(maze, q, s)  # each element in moves looks like ((x, y), prob of fire next tick)
-    min_prob = 1.0
-    for move in moves:
-        prob = move[1]
-        if prob < min_prob:
-            min_prob = prob
-    safest_moves = set()
-    for move in moves:
-        prob = move[1]
-        # cell must have lowest prob of setting on fire out of agent's options
-        if prob == min_prob:
-            # check if the move can get to goal without going back to current cell
-            temp_maze = deepcopy(maze)
-            temp_maze[s[0]][s[1]] = 1
-            if dfs(temp_maze, move[0], g):
-                safest_moves.add(move[0])
-    if len(safest_moves) == 1:
-        return safest_moves.pop()
-    max_distance = math.sqrt(math.pow(len(maze), 2) * 2)
-    best_move = None
-    for move in safest_moves:
-        distance = h_map[move]
-        if distance < max_distance:
-            best_move = move
-            max_distance = distance
-    return best_move
+
+    parent = [[None for _ in maze] for _ in maze]
+    fire_location = fires[0]
+
+    visited = {s}
+    # Use a heap data structure for the fringe
+    v = s
+
+    # While cells are in fringe
+    ptr = (0, 0)
+    while v != g:
+        # Check neighbors of the cell and pick highest_priority cell,
+        # meaning lowest (distance from goal - distance from fire)
+        lowest_priority = math.sqrt(2 * math.pow(len(maze), 2))
+        move_options = set()
+        temp = deepcopy(maze)
+        temp[v[0]][v[1]] = 1
+        for x, y in adj_cells(v):
+            if (x, y) not in visited and valid_cell(x, y, maze) and dfs(temp, (x, y), g):
+                visited.add(v)
+                move_options.add(v)
+                priority = h_map[(x, y)] - math.sqrt(
+                    math.pow(fire_location[0] - x, 2) + math.pow(fire_location[1] - y, 2))
+                if priority < lowest_priority:
+                    lowest_priority = priority
+                    ptr = (x, y)
+        parent[ptr[0]][ptr[1]] = (v[0], v[1])
+        v = ptr
+
+    path = deque()
+    path.append(g)
+    prev = parent[g[0]][g[1]]
+    if prev is None:
+        return None
+    while prev != s:
+        path.appendleft(prev)
+        prev = parent[prev[0]][prev[1]]
+    return path

@@ -110,11 +110,11 @@ def p4_trial(dim, p):
 def problem5():
     dim = 5
     p = .2
-    q = .1
+    q = .2
     maze = generate_maze(dim, p)
     fires = [start_fire(maze)]
     current = (0, 0)
-    while not dfs(maze, current, (dim - 1, dim - 1)) or not dfs(maze, current, fires[0], fire_point=True):
+    while not dfs(maze, current, (dim - 1, dim - 1)) or not dfs(maze, current, fires[0]):
         maze = generate_maze(dim, p)
         fires = [start_fire(maze)]
     h_map = {}
@@ -122,11 +122,14 @@ def problem5():
     for i in range(dim):
         for j in range(dim):
             h_map[(i, j)] = h((i, j), (dim - 1, dim - 1))
+    path = FIRE(maze, current, (dim - 1, dim - 1), h_map, fires)
     while True:
         print_maze(maze, agent=current)
-        current = acronym(maze, current, (dim - 1, dim - 1), h_map, fires, q)
+        if not dfs(maze, current, (dim - 1, dim - 1)):
+            print('No path to goal left')
+            return 1
+        current = path.popleft()
         if not current:
-            print('Out of moves')
             return 1
         print('Agent moves to ' + str(current))
         print_maze(maze, agent=current)

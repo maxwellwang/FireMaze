@@ -126,7 +126,7 @@ def problem5():
     for i in range(dim):
         for j in range(dim):
             f_map[(i, j)] = h((i, j), fires[0])
-    path = FIRE(maze, current, (dim - 1, dim - 1), h_map, f_map, fires[0])
+    path = SPARK(maze, current, (dim - 1, dim - 1), h_map, f_map, fires[0])
     while True:
         print_maze(maze, agent=current)
         if not dfs(maze, current, (dim - 1, dim - 1)) or maze[dim - 1][dim - 1] == 2:

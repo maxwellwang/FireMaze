@@ -281,9 +281,9 @@ def a_star(maze, s, g, h_map, path=False):
         return num_visited
 
 
-def FIRE(maze, s, g, h_map, f_map, fire_location):
+def SPARK(maze, s, g, h_map, f_map, fire_location):
     """
-    Future Imminent Risk Evaluation
+    Safest Path According to Risk Knowledge
     Similar to a* but now priority will be euclidean distance from goal - euclidean distance from fire.
     Need a* to optimize path at the end. And if fire threatens every path to goal, just use a*.
     :param maze: The particular maze to check

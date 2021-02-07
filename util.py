@@ -281,18 +281,18 @@ def a_star(maze, s, g, h_map, path=False):
         return num_visited
 
 
-def SPARK(maze, s, g, h_map, f_map, fire_location):
+def SPARK(maze, s, g, h_map, fires):
     """
     Safest Path According to Risk Knowledge
-    Similar to a* but now priority will be euclidean distance from goal - euclidean distance from single fire.
-    Need a* to optimize path at the end. And if single fire threatens every path to goal, just use a*.
+    Similar to a* but now priority will be euclidean distance from goal / euclidean distance from averaged fire center.
+    Need a* to optimize path at the end. And if impossible to get to goal while avoiding fire, then use a*.
     :param maze: The particular maze to check
     :param s: Tuple of coordinates, the starting coordinate
     :param g: Tuple of coordinates, the goal coordinate
     :param h_map: Euclidean distances to goal
-    :param f_map: Euclidean distances to fire
-    :param fire_location: Coordinates of initial fire
-    :return: Path to goal that moves towards goal while staying away from fire
+    :param fires: Fire coordinates
+    :return: Path to goal that moves towards goal while staying away from fire, or just shortest path
+    to goal if you can't avoid fire
     """
 
     for c in s + g:
@@ -301,15 +301,24 @@ def SPARK(maze, s, g, h_map, f_map, fire_location):
     if not dfs(maze, s, g):
         return None
 
+    # make f_map
+    x_sum, y_sum = 0, 0
+    for x, y in fires:
+        x_sum += x
+        y_sum += y
+    fire_location = (x_sum / len(fires), y_sum / len(fires))
+    h = lambda f, g: math.sqrt(math.pow(f[0] - g[0], 2) + math.pow(f[1] - g[1], 2))
+    f_map = {}
+    for i in range(len(maze)):
+        for j in range(len(maze)):
+            f_map[(i, j)] = h((i, j), fire_location)
+
     parent = [[None for _ in maze] for _ in maze]
-
     visited = {s}
-    # Use a heap data structure for the fringe
     v = s
-
-    # While cells are in fringe
     ptr = (0, 0)
     tr_ptr = (-1, -1)
+
     while v != g:
         # Check neighbors of the cell and pick highest_priority cell,
         # meaning lowest (distance from goal - distance from fire)
@@ -336,11 +345,12 @@ def SPARK(maze, s, g, h_map, f_map, fire_location):
     while prev != s:
         path.appendleft(prev)
         prev = parent[prev[0]][prev[1]]
+    # in temp maze, block off any cell not chosen by path
     temp = deepcopy(maze)
-    # block off routes that path has not chosen
-    for x, y in adj_cells(fire_location):
-        if valid_cell(x, y, maze) and (x, y) not in path:
-            temp[x][y] = 1
-    # let a* optimize path without changing general direction
+    for i in range(len(temp)):
+        for j in range(len(temp)):
+            if (i, j) not in path and s != (i, j):
+                temp[i][j] = 1
+    # a_star will optimize any unnecessary movements
     a_path = a_star(temp, s, g, h_map, path=True)
     return a_path

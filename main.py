@@ -114,11 +114,7 @@ def strategy3(maze, fires):
     for i in range(dim):
         for j in range(dim):
             h_map[(i, j)] = h((i, j), (dim - 1, dim - 1))
-    f_map = {}
-    for i in range(dim):
-        for j in range(dim):
-            f_map[(i, j)] = h((i, j), fires[0])
-    path = SPARK(maze, current, (dim - 1, dim - 1), h_map, f_map, fires[0])
+    path = SPARK(maze, current, (dim - 1, dim - 1), h_map, fires)
     while True:
         print_maze(maze, agent=current)
         current = path.popleft()
@@ -138,13 +134,7 @@ def strategy3(maze, fires):
             print_maze(maze, agent=current)
             print('No path to goal left')
             return 1
-        for fire in fires:
-            if fire in path:
-                f_map = {}
-                for i in range(dim):
-                    for j in range(dim):
-                        f_map[(i, j)] = h((i, j), fire)
-                path = SPARK(maze, current, (dim - 1, dim - 1), h_map, f_map, fire)
+        path = SPARK(maze, current, (dim - 1, dim - 1), h_map, fires)
 
 
 def problem6():

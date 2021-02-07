@@ -107,16 +107,16 @@ def p4_trial(dim, p):
     return time.time() - t
 
 
-def strategy3(maze, fires):
+def strategy1(maze, fires):
     current = (0, 0)
     h_map = {}
     h = lambda f, g: math.sqrt(math.pow(f[0] - g[0], 2) + math.pow(f[1] - g[1], 2))
     for i in range(dim):
         for j in range(dim):
             h_map[(i, j)] = h((i, j), (dim - 1, dim - 1))
-    path = SPARK(maze, current, (dim - 1, dim - 1), h_map, fires)
+    path = a_star(maze, current, (dim - 1, dim - 1), h_map, path=True)
+    print_maze(maze, agent=current)
     while True:
-        print_maze(maze, agent=current)
         current = path.popleft()
         if not current:
             return 1
@@ -134,6 +134,68 @@ def strategy3(maze, fires):
             print_maze(maze, agent=current)
             print('No path to goal left')
             return 1
+        print_maze(maze, agent=current)
+
+
+def strategy2(maze, fires):
+    current = (0, 0)
+    h_map = {}
+    h = lambda f, g: math.sqrt(math.pow(f[0] - g[0], 2) + math.pow(f[1] - g[1], 2))
+    for i in range(dim):
+        for j in range(dim):
+            h_map[(i, j)] = h((i, j), (dim - 1, dim - 1))
+    path = a_star(maze, current, (dim - 1, dim - 1), h_map, path=True)
+    print_maze(maze, agent=current)
+    while True:
+        current = path.popleft()
+        if not current:
+            return 1
+        print('Agent moves to ' + str(current))
+        if current == (dim - 1, dim - 1):
+            print_maze(maze, agent=current)
+            print('Successful escape')
+            return 0
+        maze, fires = tick_maze(maze, fires, q)
+        if current in fires:
+            print_maze(maze)
+            print('Agent set on fire')
+            return 1
+        if not dfs(maze, current, (dim - 1, dim - 1)) or maze[dim - 1][dim - 1] == 2:
+            print_maze(maze, agent=current)
+            print('No path to goal left')
+            return 1
+        print_maze(maze, agent=current)
+        path = a_star(maze, current, (dim - 1, dim - 1), h_map, path=True)
+
+
+def strategy3(maze, fires):
+    current = (0, 0)
+    h_map = {}
+    h = lambda f, g: math.sqrt(math.pow(f[0] - g[0], 2) + math.pow(f[1] - g[1], 2))
+    for i in range(dim):
+        for j in range(dim):
+            h_map[(i, j)] = h((i, j), (dim - 1, dim - 1))
+    path = SPARK(maze, current, (dim - 1, dim - 1), h_map, fires)
+    print_maze(maze, agent=current)
+    while True:
+        current = path.popleft()
+        if not current:
+            return 1
+        print('Agent moves to ' + str(current))
+        if current == (dim - 1, dim - 1):
+            print_maze(maze, agent=current)
+            print('Successful escape')
+            return 0
+        maze, fires = tick_maze(maze, fires, q)
+        if current in fires:
+            print_maze(maze)
+            print('Agent set on fire')
+            return 1
+        if not dfs(maze, current, (dim - 1, dim - 1)) or maze[dim - 1][dim - 1] == 2:
+            print_maze(maze, agent=current)
+            print('No path to goal left')
+            return 1
+        print_maze(maze, agent=current)
         path = SPARK(maze, current, (dim - 1, dim - 1), h_map, fires)
 
 
@@ -228,10 +290,15 @@ if __name__ == "__main__":
     dim = 5
     p = .3
     q = .2
-    maze = generate_maze(dim, p)
-    fires = [start_fire(maze)]
-    while not dfs(maze, (0, 0), (dim - 1, dim - 1)) or not dfs(maze, (0, 0), fires[0]):
+    a, b, c = 0, 0, 0
+    for _ in range(10000):
         maze = generate_maze(dim, p)
         fires = [start_fire(maze)]
-    strategy3(maze, fires)
+        while not dfs(maze, (0, 0), (dim - 1, dim - 1)) or not dfs(maze, (0, 0), fires[0]):
+            maze = generate_maze(dim, p)
+            fires = [start_fire(maze)]
+        a += strategy1(maze, fires)
+        b += strategy2(maze, fires)
+        c += strategy3(maze, fires)
+    print(a, b, c)
     # problem6()

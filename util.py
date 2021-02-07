@@ -297,11 +297,11 @@ def SPARK(maze, s, g, h_map, fires):
 
     for c in s + g:
         if not 0 <= c < len(maze):
-            return
+            return None
     if not dfs(maze, s, g):
         return None
 
-    # make f_map
+    # find average fire center and make f_map
     x_sum, y_sum = 0, 0
     for x, y in fires:
         x_sum += x
@@ -331,11 +331,11 @@ def SPARK(maze, s, g, h_map, fires):
                 priority = h_map[(x, y)] / f_map[(x, y)]
                 if priority < lowest_priority:
                     lowest_priority = priority
-                    ptr = (x, y)
-        parent[ptr[0]][ptr[1]] = (v[0], v[1])
+                    ptr = (x, y)  # currently the best next move
         if v == tr_ptr:
             # algorithm stuck because fire threatens every path to goal, use a*
             return a_star(maze, s, g, h_map, path=True)
+        parent[ptr[0]][ptr[1]] = (v[0], v[1])
         tr_ptr = v
         v = ptr
 
@@ -349,8 +349,7 @@ def SPARK(maze, s, g, h_map, fires):
     temp = deepcopy(maze)
     for i in range(len(temp)):
         for j in range(len(temp)):
-            if (i, j) not in path and s != (i, j):
+            if (i, j) not in path and (i, j) != s:
                 temp[i][j] = 1
-    # a_star will optimize any unnecessary movements
-    a_path = a_star(temp, s, g, h_map, path=True)
-    return a_path
+    # a_star will cut out any unnecessary movements
+    return a_star(temp, s, g, h_map, path=True)

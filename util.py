@@ -100,8 +100,8 @@ def start_fire(maze):
 
 def tick_maze(maze, fires, q):
     """
-    Simulates the fire spreading one step in some maze
-    :param maze: The maze to simulate fire in
+    Spreads the fire one step in some maze
+    :param maze: The maze to spread the fire in
     :param fires: A set containing coordinates of every fire
     :param q: The flammability rate of the fire
     :return: Tuple containing the new maze and new set of fires
@@ -226,6 +226,7 @@ def a_star(maze, s, g, h_map, path=False):
     :param maze: The particular maze to check
     :param s: Tuple of coordinates, the starting coordinate
     :param g: Tuple of coordinates, the goal coordinate
+    :param h_map: Euclidean distances from goal
     :return: Integer of the number of visited cells
     """
 
@@ -281,18 +282,65 @@ def a_star(maze, s, g, h_map, path=False):
         return num_visited
 
 
-def SPARK(maze, s, g, h_map, fires):
+def sim_tick_maze(maze, fires, q, threshold):
     """
-    Safest Path According to Risk Knowledge
-    Similar to a* but now priority will be euclidean distance from goal / euclidean distance from averaged fire center.
-    Need a* to optimize path at the end. And if impossible to get to goal while avoiding fire, then use a*.
+    Simulates the fire spreading one step in some maze
+    :param maze: The maze to simulate fire in
+    :param fires: A set containing coordinates of every fire
+    :param q: The flammability rate of the fire
+    :param threshold: If cell ignition prob is at least threshold, then ignite it
+    :return: Tuple containing the new maze and new set of fires
+    """
+
+    def count_fires(maze, fire):
+        """
+        Helper function to count fires surronding a cell
+        :param maze: Maze to count from
+        :param fire: Pair of coordinates of interest
+        :return: Number of fires surronding cell
+        """
+        num_fires = 0
+        for dx, dy in adj_cells(fire):
+            if valid_cell(dx, dy, maze, val=2):
+                num_fires += 1
+        return num_fires
+
+    # Generate a copy of current fires and maze
+    new_fires = fires[:]
+    new_maze = [row[:] for row in maze]
+    visited = set()
+
+    # For each fire, we check its neighbors
+    for fire in fires:
+        for x, y in adj_cells(fire):
+            # If the cell is open and we have not simulated it, simulate the fire spreading
+            if valid_cell(x, y, maze) and (x, y) not in visited:
+                if 1 - math.pow(1 - q, count_fires(maze, (x, y))) >= threshold:
+                    # If fire spreads, update the new maze and new fires
+                    new_maze[x][y] = 2
+                    new_fires.append((x, y))
+                visited.add((x, y))
+        # If the cell we were checking is now surrounded by four fires,
+        # it can no longer spread so we remove it from our list
+        if count_fires(new_maze, fire) == 4:
+            new_fires.remove(fire)
+
+    return new_maze, new_fires
+
+
+def sword(maze, s, g, h_map, fires, q):
+    """
+    Simulated Worst Outcome Risk Divination
+    Given a maze, simulates maze with worst-case fire spread and runs a*
+    on that maze. If no path in that maze, incrementally decrease fire spreading
+    chance and try again.
     :param maze: The particular maze to check
     :param s: Tuple of coordinates, the starting coordinate
     :param g: Tuple of coordinates, the goal coordinate
-    :param h_map: Euclidean distances to goal
-    :param fires: Fire coordinates
-    :return: Path to goal that moves towards goal while staying away from fire, or just shortest path
-    to goal if you can't avoid fire
+    :param h_map: Euclidean distances from goal
+    :param fires: Fire locations so we know where they might spread next
+    :param q: Fire flammability
+    :return: Path to get to goal in simulated maze, so it accounts for future maze
     """
 
     for c in s + g:
@@ -301,55 +349,11 @@ def SPARK(maze, s, g, h_map, fires):
     if not dfs(maze, s, g):
         return None
 
-    # find average fire center and make f_map
-    x_sum, y_sum = 0, 0
-    for x, y in fires:
-        x_sum += x
-        y_sum += y
-    fire_location = (x_sum / len(fires), y_sum / len(fires))
-    h = lambda f, g: math.sqrt(math.pow(f[0] - g[0], 2) + math.pow(f[1] - g[1], 2))
-    f_map = {}
-    for i in range(len(maze)):
-        for j in range(len(maze)):
-            f_map[(i, j)] = h((i, j), fire_location)
-
-    parent = [[None for _ in maze] for _ in maze]
-    visited = {s}
-    v = s
-    ptr = (0, 0)
-    tr_ptr = (-1, -1)
-
-    while v != g:
-        # Check neighbors of the cell and pick highest_priority cell,
-        # meaning lowest (distance from goal - distance from fire)
-        lowest_priority = math.sqrt(2 * math.pow(len(maze), 2))
-        for x, y in adj_cells(v):
-            temp = deepcopy(maze)
-            temp[v[0]][v[1]] = 1
-            if (x, y) not in visited and valid_cell(x, y, maze) and dfs(temp, (x, y), g):
-                visited.add(v)
-                priority = h_map[(x, y)] / f_map[(x, y)]
-                if priority < lowest_priority:
-                    lowest_priority = priority
-                    ptr = (x, y)  # currently the best next move
-        if v == tr_ptr:
-            # algorithm stuck because fire threatens every path to goal, use a*
-            return a_star(maze, s, g, h_map, path=True)
-        parent[ptr[0]][ptr[1]] = (v[0], v[1])
-        tr_ptr = v
-        v = ptr
-
-    path = deque()
-    path.append(g)
-    prev = parent[g[0]][g[1]]
-    while prev != s:
-        path.appendleft(prev)
-        prev = parent[prev[0]][prev[1]]
-    # in temp maze, block off any cell not chosen by path
-    temp = deepcopy(maze)
-    for i in range(len(temp)):
-        for j in range(len(temp)):
-            if (i, j) not in path and (i, j) != s:
-                temp[i][j] = 1
-    # a_star will cut out any unnecessary movements
-    return a_star(temp, s, g, h_map, path=True)
+    # iterate through thresholds: first if all threatened cells ignite next turn,
+    # then they only ignite if their prob is >= 10%, and so on
+    for i in range(0, 101, 10):
+        sim_maze, sim_fires = sim_tick_maze(maze, fires, q, i / 100.0)
+        # if s and g are safe and there is a path connecting them in sim_maze, find shortest path through it
+        if sim_maze[s[0]][s[1]] == 0 and sim_maze[g[0]][g[1]] == 0 and dfs(sim_maze, s, g):
+            return a_star(sim_maze, s, g, h_map, path=True)
+    return a_star(maze, s, g, h_map, path=True)

@@ -175,7 +175,7 @@ def strategy3(maze, fires, q):
     for i in range(dim):
         for j in range(dim):
             h_map[(i, j)] = h((i, j), (dim - 1, dim - 1))
-    path = sword(maze, current, (dim - 1, dim - 1), h_map, fires, q)
+    path = prune(maze, current, (dim - 1, dim - 1), h_map, fires, q)
     # print_maze(maze, agent=current)
     while True:
         current = path.popleft()
@@ -196,7 +196,7 @@ def strategy3(maze, fires, q):
             # print('No path to goal left')
             return 1
         # print_maze(maze, agent=current)
-        path = sword(maze, current, (dim - 1, dim - 1), h_map, fires, q)
+        path = prune(maze, current, (dim - 1, dim - 1), h_map, fires, q)
 
 
 def problem6():
@@ -287,11 +287,11 @@ if __name__ == "__main__":
     # problem3()
     # problem4()
     # fire_sim()
-    dim = 40
+    dim = 5
     p = .3
     q = .2
     a, b, c = 0, 0, 0
-    for i in range(100):
+    for i in range(1000):
         maze = generate_maze(dim, p)
         fires = [start_fire(maze)]
         while not dfs(maze, (0, 0), (dim - 1, dim - 1)) or not dfs(maze, (0, 0), fires[0]):

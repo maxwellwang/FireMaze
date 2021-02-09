@@ -233,6 +233,8 @@ def a_star(maze, s, g, h_map, path=False):
     for c in s + g:
         if not 0 <= c < len(maze):
             return
+    if not dfs(maze, s, g):
+        return None
 
     temp = deepcopy(maze)
     temp[s[0]][s[1]] = 0
@@ -357,3 +359,55 @@ def sword(maze, s, g, h_map, fires, q):
         if sim_maze[s[0]][s[1]] == 0 and sim_maze[g[0]][g[1]] == 0 and dfs(sim_maze, s, g):
             return a_star(sim_maze, s, g, h_map, path=True)
     return a_star(maze, s, g, h_map, path=True)
+
+
+def prune(maze, s, g, h_map, fires, q):
+    for c in s + g:
+        if not 0 <= c < len(maze):
+            return None
+    if not dfs(maze, s, g):
+        return None
+
+    possible_cells = []
+    for x in range(len(maze)):
+        for y in range(len(maze)):
+            if s != (x, y) and g != (x, y) and valid_cell(x, y, maze) and dfs(maze, s, (x, y)):
+                possible_cells.append((x, y))
+
+    distance_from_agent = []
+    d = lambda f, g: math.sqrt(math.pow(f[0] - g[0], 2) + math.pow(f[1] - g[1], 2))
+    for i in range(len(possible_cells)):
+        (x, y) = possible_cells[i]
+        d_map = {}
+        for i in range(len(maze)):
+            for j in range(len(maze)):
+                d_map[(i, j)] = d((i, j), s)
+        distance_from_agent.append(len(a_star(maze, s, (x, y), d_map, path=True)))
+
+    heap = []
+    if possible_cells:
+        num_trials = 100
+        num_steps = max(distance_from_agent)
+        temp = deepcopy(maze)
+        temp_fires = deepcopy(fires)
+        ignition_counts = [0.0 for _ in range(len(possible_cells))]
+        for trial in range(num_trials):
+            for step in range(num_steps):
+                temp, temp_fires = tick_maze(temp, temp_fires, q)
+                for i in range(len(possible_cells)):
+                    cell = possible_cells[i]
+                    if step + 1 == distance_from_agent[i] and temp[cell[0]][cell[1]] == 2:
+                        ignition_counts[i] += 1.0
+        for i in range(len(ignition_counts)):
+            prob = ignition_counts[i] / num_trials
+            heapq.heappush(heap, (-1 * prob, possible_cells[i]))
+
+    temp = deepcopy(maze)
+    (x, y) = (0, 0)
+    while heap and dfs(temp, s, g):
+        popped = heapq.heappop(heap)
+        (x, y) = popped[1]
+        temp[x][y] = 1
+    if not dfs(temp, s, g):
+        temp[x][y] = 0
+    return a_star(temp, s, g, h_map, path=True)

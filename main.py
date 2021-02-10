@@ -107,103 +107,11 @@ def p4_trial(dim, p):
     return time.time() - t
 
 
-def strategy1(maze, fires, q):
-    current = (0, 0)
-    h_map = {}
-    h = lambda f, g: math.sqrt(math.pow(f[0] - g[0], 2) + math.pow(f[1] - g[1], 2))
-    for i in range(dim):
-        for j in range(dim):
-            h_map[(i, j)] = h((i, j), (dim - 1, dim - 1))
-    path = a_star(maze, current, (dim - 1, dim - 1), h_map, path=True)
-    # print_maze(maze, agent=current)
-    while True:
-        current = path.popleft()
-        if not current:
-            return 1
-        # print('Agent moves to ' + str(current))
-        if current == (dim - 1, dim - 1):
-            # print_maze(maze, agent=current)
-            # print('Successful escape')
-            return 0
-        maze, fires = tick_maze(maze, fires, q)
-        if current in fires:
-            # print_maze(maze)
-            # print('Agent set on fire')
-            return 1
-        if not dfs(maze, current, (dim - 1, dim - 1)) or maze[dim - 1][dim - 1] == 2:
-            # print_maze(maze, agent=current)
-            # print('No path to goal left')
-            return 1
-        # print_maze(maze, agent=current)
-
-
-def strategy2(maze, fires, q):
-    current = (0, 0)
-    h_map = {}
-    h = lambda f, g: math.sqrt(math.pow(f[0] - g[0], 2) + math.pow(f[1] - g[1], 2))
-    for i in range(dim):
-        for j in range(dim):
-            h_map[(i, j)] = h((i, j), (dim - 1, dim - 1))
-    path = a_star(maze, current, (dim - 1, dim - 1), h_map, path=True)
-    # print_maze(maze, agent=current)
-    while True:
-        current = path.popleft()
-        if not current:
-            return 1
-        # print('Agent moves to ' + str(current))
-        if current == (dim - 1, dim - 1):
-            # print_maze(maze, agent=current)
-            # print('Successful escape')
-            return 0
-        maze, fires = tick_maze(maze, fires, q)
-        if current in fires:
-            # print_maze(maze)
-            # print('Agent set on fire')
-            return 1
-        if not dfs(maze, current, (dim - 1, dim - 1)) or maze[dim - 1][dim - 1] == 2:
-            # print_maze(maze, agent=current)
-            # print('No path to goal left')
-            return 1
-        # print_maze(maze, agent=current)
-        path = a_star(maze, current, (dim - 1, dim - 1), h_map, path=True)
-
-
-def strategy3(maze, fires, q):
-    current = (0, 0)
-    h_map = {}
-    h = lambda f, g: math.sqrt(math.pow(f[0] - g[0], 2) + math.pow(f[1] - g[1], 2))
-    for i in range(dim):
-        for j in range(dim):
-            h_map[(i, j)] = h((i, j), (dim - 1, dim - 1))
-    path = prune(maze, current, (dim - 1, dim - 1), h_map, fires, q)
-    # print_maze(maze, agent=current)
-    while True:
-        current = path.popleft()
-        if not current:
-            return 1
-        # print('Agent moves to ' + str(current))
-        if current == (dim - 1, dim - 1):
-            # print_maze(maze, agent=current)
-            # print('Successful escape')
-            return 0
-        maze, fires = tick_maze(maze, fires, q)
-        if current in fires:
-            # print_maze(maze)
-            # print('Agent set on fire')
-            return 1
-        if not dfs(maze, current, (dim - 1, dim - 1)) or maze[dim - 1][dim - 1] == 2:
-            # print_maze(maze, agent=current)
-            # print('No path to goal left')
-            return 1
-        # print_maze(maze, agent=current)
-        path = prune(maze, current, (dim - 1, dim - 1), h_map, fires, q)
-
-
 def problem6():
     exec = concurrent.futures.ProcessPoolExecutor()
     q_steps = 40
     q_trials = 40
-    dim = 75
+    dim = 100
 
     t = time.time()
 
@@ -211,9 +119,9 @@ def problem6():
     ys = [[0 for _ in range(q_steps)] for _ in range(3)]
     h_map = {}
     h = lambda f, g: math.sqrt(math.pow(f[0] - g[0], 2) + math.pow(f[1] - g[1], 2))
-    for i in range(75):
-        for j in range(75):
-            h_map[(i, j)] = h((i, j), (74, 74))
+    for i in range(dim):
+        for j in range(dim):
+            h_map[(i, j)] = h((i, j), (dim - 1, dim - 1))
 
     futures = {exec.submit(p6_trial, h_map=h_map, dim=dim, q=q / q_steps): q / q_steps for _ in range(q_trials) for q in
                range(q_steps)}
@@ -237,22 +145,23 @@ def problem6():
 def p6_trial(dim=100, p=0.3, q=0.3, h_map=None, debug=False):
     results, nexts, deqs = [-1] * 3, [(0, 0)] * 3, [None] * 3
 
-    while not deqs[0] or not deqs[1]:
+    maze = generate_maze(dim, p)
+    fires = [start_fire(maze)]
+    maze[fires[0][0]][fires[0][1]] = 2
+    while not dfs(maze, (0, 0), (dim - 1, dim - 1)) or not dfs(maze, (0, 0), (fires[0][0], fires[0][1])):
         maze = generate_maze(dim, p)
         fires = [start_fire(maze)]
-        maze[fires[0][0]][fires[0][1]] = 0
-        deqs[0] = a_star(maze, nexts[0], (len(maze) - 1, len(maze) - 1), h_map=h_map, path=True)
-        deqs[1] = a_star(maze, nexts[1], fires[0], h_map=h_map, path=True)
         maze[fires[0][0]][fires[0][1]] = 2
 
+    deqs[0] = a_star(maze, nexts[0], (dim - 1, dim - 1), h_map=h_map, path=True)
+    deqs[1] = a_star(maze, nexts[1], (dim - 1, dim - 1), h_map=h_map, path=True)
+    deqs[2] = prune(maze, nexts[2], (dim - 1, dim - 1), h_map, fires, q)
     while True:
-        deqs[1] = a_star(maze, nexts[1], (len(maze) - 1, len(maze) - 1), h_map=h_map, path=True)
-
-        maze, fires = tick_maze(maze, fires, q)
+        deqs[1] = a_star(maze, nexts[1], (dim - 1, dim - 1), h_map=h_map, path=True)
 
         if debug:
             print_maze(maze, nexts[1])
-            print(deqs[0], deqs[1])
+            print(deqs[0], deqs[1], deqs[2])
 
         for i in range(len(deqs)):
             if deqs[i]:
@@ -260,15 +169,16 @@ def p6_trial(dim=100, p=0.3, q=0.3, h_map=None, debug=False):
                 if maze[nexts[i][0]][nexts[i][1]] != 0:
                     results[i] = 0
                     deqs[i].clear()
+        maze, fires = tick_maze(maze, fires, q)
 
         if not [deq for deq in deqs if deq]:
             for i in range(len(results)):
-                results[i] = 1 if nexts[i] == (len(maze) - 1, len(maze) - 1) else 0
+                results[i] = 1 if nexts[i] == (dim - 1, dim - 1) else 0
             break
 
         if debug:
             print(nexts[1])
-
+    print(results)
     return results
 
 
@@ -287,18 +197,4 @@ if __name__ == "__main__":
     # problem3()
     # problem4()
     # fire_sim()
-    dim = 5
-    p = .3
-    q = .2
-    a, b, c = 0, 0, 0
-    for i in range(1000):
-        maze = generate_maze(dim, p)
-        fires = [start_fire(maze)]
-        while not dfs(maze, (0, 0), (dim - 1, dim - 1)) or not dfs(maze, (0, 0), fires[0]):
-            maze = generate_maze(dim, p)
-            fires = [start_fire(maze)]
-        a += strategy1(maze, fires, q)
-        b += strategy2(maze, fires, q)
-        c += strategy3(maze, fires, q)
-        print(i, a, b, c)
-    # problem6()
+    problem6()

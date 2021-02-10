@@ -181,13 +181,14 @@ def dfs(maze, s, g):
     return False
 
 
-def bfs(maze, s, g):
+def bfs(maze, s, g, distances=False):
     """
     Given a maze, performs BFS search algorithm starting from s
     and checks if cell g is reachable. Return num visited cells.
     :param maze: The particular maze to check
     :param s: Tuple of coordinates, the starting coordinate
     :param g: Tuple of coordinates, the goal coordinate
+    :param distances: If True, return map of shortest distances to s
     :return: Integer of the number of visited cells
     """
 
@@ -200,14 +201,22 @@ def bfs(maze, s, g):
     fringe.append(s)
     visited.add(s)
     num_visited = 0
+    map = {}
+    distance = 1
 
     # While cells are in fringe
+    num_in_layer = len(fringe)
     while fringe:
         # Remove in FIFO fashion
         v = fringe.popleft()
+        num_in_layer -= 1
+        map[v] = distance
+        if num_in_layer == 0:
+            num_in_layer = len(fringe)
+            distance += 1
         num_visited += 1
         # If we found goal cell, break out of loop
-        if v == g:
+        if not distances and v == g:
             break
         # For each neighbor, add to fringe if not visited and valid
         for x, y in adj_cells(v):
@@ -215,6 +224,8 @@ def bfs(maze, s, g):
                 visited.add((x, y))
                 fringe.append((x, y))
 
+    if distances:
+        return map
     # Return total number of cells BFS visited
     return num_visited
 
@@ -368,44 +379,43 @@ def prune(maze, s, g, h_map, fires, q):
     if not dfs(maze, s, g):
         return None
 
-    possible_cells = []
-    for x in range(len(maze)):
-        for y in range(len(maze)):
-            if s != (x, y) and g != (x, y) and valid_cell(x, y, maze) and dfs(maze, s, (x, y)):
-                possible_cells.append((x, y))
+    check_heap = []
+    map = bfs(maze, s, g, distances=True)
+    for (x, y) in map.keys():
+        if s != (x, y) and g != (x, y):
+            distance = map.get((x, y))
+            heapq.heappush(check_heap, (distance, (x, y)))
 
-    distance_from_agent = []
-    d = lambda f, g: math.sqrt(math.pow(f[0] - g[0], 2) + math.pow(f[1] - g[1], 2))
-    for i in range(len(possible_cells)):
-        (x, y) = possible_cells[i]
-        d_map = {}
-        for i in range(len(maze)):
-            for j in range(len(maze)):
-                d_map[(i, j)] = d((i, j), s)
-        distance_from_agent.append(len(a_star(maze, s, (x, y), d_map, path=True)))
-
-    heap = []
-    if possible_cells:
+    block_heap = []
+    if check_heap:
         num_trials = 100
-        num_steps = max(distance_from_agent)
         temp = deepcopy(maze)
         temp_fires = deepcopy(fires)
-        ignition_counts = [0.0 for _ in range(len(possible_cells))]
+        ignition_counts = {}
+        for item in check_heap:
+            cell = item[1]
+            ignition_counts[cell] = 0.0
+        saved_heap = check_heap.copy()
         for trial in range(num_trials):
-            for step in range(num_steps):
+            fire_step = 0
+            check_heap = saved_heap.copy()
+            while check_heap:
                 temp, temp_fires = tick_maze(temp, temp_fires, q)
-                for i in range(len(possible_cells)):
-                    cell = possible_cells[i]
-                    if step + 1 == distance_from_agent[i] and temp[cell[0]][cell[1]] == 2:
-                        ignition_counts[i] += 1.0
-        for i in range(len(ignition_counts)):
-            prob = ignition_counts[i] / num_trials
-            heapq.heappush(heap, (-1 * prob, possible_cells[i]))
+                fire_step += 1
+                while check_heap and check_heap[0][0] == fire_step:
+                    popped = heapq.heappop(check_heap)
+                    (x, y) = popped[1]
+                    if temp[x][y] == 2:
+                        ignition_counts[(x, y)] += 1.0
+        for (x, y) in ignition_counts.keys():
+            count = ignition_counts.get((x, y))
+            prob = count / num_trials
+            heapq.heappush(block_heap, (-1 * prob, (x, y)))
 
     temp = deepcopy(maze)
     (x, y) = (0, 0)
-    while heap and dfs(temp, s, g):
-        popped = heapq.heappop(heap)
+    while block_heap and dfs(temp, s, g):
+        popped = heapq.heappop(block_heap)
         (x, y) = popped[1]
         temp[x][y] = 1
     if not dfs(temp, s, g):

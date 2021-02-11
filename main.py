@@ -146,6 +146,7 @@ def p6_trial(dim=100, p=0.3, q=0.3, h_map=None, debug=False):
     results, nexts, deqs = [-1] * 3, [(0, 0)] * 3, [None] * 3
 
     maze = generate_maze(dim, p)
+    old_fires = None
     fires = [start_fire(maze)]
     maze[fires[0][0]][fires[0][1]] = 2
     while not dfs(maze, (0, 0), (dim - 1, dim - 1)) or not dfs(maze, (0, 0), (fires[0][0], fires[0][1])):
@@ -155,9 +156,11 @@ def p6_trial(dim=100, p=0.3, q=0.3, h_map=None, debug=False):
 
     deqs[0] = a_star(maze, nexts[0], (dim - 1, dim - 1), h_map=h_map, path=True)
     deqs[1] = a_star(maze, nexts[1], (dim - 1, dim - 1), h_map=h_map, path=True)
-    deqs[2] = prune(maze, nexts[2], (dim - 1, dim - 1), h_map, fires, q)
+    deqs[2] = scorch(maze, nexts[2], (dim - 1, dim - 1), h_map, fires, q)
     while True:
-        deqs[1] = a_star(maze, nexts[1], (dim - 1, dim - 1), h_map=h_map, path=True)
+        if old_fires != fires:
+            deqs[1] = a_star(maze, nexts[1], (dim - 1, dim - 1), h_map=h_map, path=True)
+            deqs[2] = scorch(maze, nexts[2], (dim - 1, dim - 1), h_map, fires, q)
 
         if debug:
             print_maze(maze, nexts[1])

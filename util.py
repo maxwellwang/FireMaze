@@ -341,44 +341,29 @@ def sim_tick_maze(maze, fires, q, threshold):
     return new_maze, new_fires
 
 
-def sword(maze, s, g, h_map, fires, q):
-    """
-    Simulated Worst Outcome Risk Divination
-    Given a maze, simulates maze with worst-case fire spread and runs a*
-    on that maze. If no path in that maze, incrementally decrease fire spreading
-    chance and try again.
-    :param maze: The particular maze to check
-    :param s: Tuple of coordinates, the starting coordinate
-    :param g: Tuple of coordinates, the goal coordinate
-    :param h_map: Euclidean distances from goal
-    :param fires: Fire locations so we know where they might spread next
-    :param q: Fire flammability
-    :return: Path to get to goal in simulated maze, so it accounts for future maze
-    """
-
+def scorch(maze, s, g, h_map, fires, q):
+    '''
+    simulated circumvention of risk convergence hotspots: simulates spread of fire several times and calculates
+    chance of each cell being on fire when agent gets there. We use the word convergence since we want to know the
+    probability that the agent and fire converge on that cell at the same time; if this chance is high, we want to
+    block off this cell in a temp maze so the agent avoids it. Then keep blocking off as many dangerous cells as
+    possible until the point where blocking another dangerous cell would block all paths to goal. Finally, run a* on
+    this temp maze where the most dangerous cells are blocked.
+    :param maze: 2d list representing maze this algo will run on
+    :param s: tuple for agent location
+    :param g: tuple for goal (dim-1, dim-1)
+    :param h_map: map of euclidean distances from goal, for a* call
+    :param fires: set of fire coordinates so we can simulate their spread
+    :param q: flammability rate for fire spread that we will simulate
+    :return: shortest path to goal that avoids dangerous cells
+    '''
     for c in s + g:
         if not 0 <= c < len(maze):
             return None
     if not dfs(maze, s, g):
         return None
 
-    # iterate through thresholds: first if all threatened cells ignite next turn,
-    # then they only ignite if their prob is >= 10%, and so on
-    for i in range(0, 101, 10):
-        sim_maze, sim_fires = sim_tick_maze(maze, fires, q, i / 100.0)
-        # if s and g are safe and there is a path connecting them in sim_maze, find shortest path through it
-        if sim_maze[s[0]][s[1]] == 0 and sim_maze[g[0]][g[1]] == 0 and dfs(sim_maze, s, g):
-            return a_star(sim_maze, s, g, h_map, path=True)
-    return a_star(maze, s, g, h_map, path=True)
-
-
-def prune(maze, s, g, h_map, fires, q):
-    for c in s + g:
-        if not 0 <= c < len(maze):
-            return None
-    if not dfs(maze, s, g):
-        return None
-
+    # for each cell, find num steps it would take for agent to reach that cell (we use bfs for this)
     check_heap = []
     map = bfs(maze, s, g, distances=True)
     for (x, y) in map.keys():
@@ -386,6 +371,7 @@ def prune(maze, s, g, h_map, fires, q):
             distance = map.get((x, y))
             heapq.heappush(check_heap, (distance, (x, y)))
 
+    # simulate fire spread and calculate chance of each cell being on fire when agent arrives there
     block_heap = []
     if check_heap:
         num_trials = 100
@@ -412,6 +398,7 @@ def prune(maze, s, g, h_map, fires, q):
             prob = count / num_trials
             heapq.heappush(block_heap, (-1 * prob, (x, y)))
 
+    # in temp maze, block off most dangerous cells until we can't anymore
     temp = deepcopy(maze)
     (x, y) = (0, 0)
     while block_heap and dfs(temp, s, g):

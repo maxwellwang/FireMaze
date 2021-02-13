@@ -111,7 +111,7 @@ def problem6():
     exec = concurrent.futures.ProcessPoolExecutor()
     q_steps = 40
     q_trials = 40
-    dim = 100
+    dim = 4
 
     t = time.time()
 
@@ -146,7 +146,7 @@ def p6_trial(dim=100, p=0.3, q=0.3, h_map=None, debug=False):
     results, nexts, deqs = [-1] * 3, [(0, 0)] * 3, [None] * 3
 
     maze = generate_maze(dim, p)
-    old_fires = None
+    last_fires = None
     fires = [start_fire(maze)]
     maze[fires[0][0]][fires[0][1]] = 2
     while not dfs(maze, (0, 0), (dim - 1, dim - 1)) or not dfs(maze, (0, 0), (fires[0][0], fires[0][1])):
@@ -158,12 +158,12 @@ def p6_trial(dim=100, p=0.3, q=0.3, h_map=None, debug=False):
     deqs[1] = a_star(maze, nexts[1], (dim - 1, dim - 1), h_map=h_map, path=True)
     deqs[2] = scorch(maze, nexts[2], (dim - 1, dim - 1), h_map, fires, q)
     while True:
-        if old_fires != fires:
+        if last_fires != fires:
             deqs[1] = a_star(maze, nexts[1], (dim - 1, dim - 1), h_map=h_map, path=True)
             deqs[2] = scorch(maze, nexts[2], (dim - 1, dim - 1), h_map, fires, q)
 
         if debug:
-            print_maze(maze, nexts[1])
+            print_maze(maze, nexts[2])
             print(deqs[0], deqs[1], deqs[2])
 
         for i in range(len(deqs)):
@@ -172,6 +172,7 @@ def p6_trial(dim=100, p=0.3, q=0.3, h_map=None, debug=False):
                 if maze[nexts[i][0]][nexts[i][1]] != 0:
                     results[i] = 0
                     deqs[i].clear()
+        last_fires = fires.copy()
         maze, fires = tick_maze(maze, fires, q)
 
         if not [deq for deq in deqs if deq]:
@@ -180,7 +181,7 @@ def p6_trial(dim=100, p=0.3, q=0.3, h_map=None, debug=False):
             break
 
         if debug:
-            print(nexts[1])
+            print(nexts[2])
     print(results)
     return results
 

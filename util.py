@@ -202,18 +202,15 @@ def bfs(maze, s, g, distances=False):
     visited.add(s)
     num_visited = 0
     map = {}
-    distance = 1
+    distance = 0
 
+    num_in_layer = 1
     # While cells are in fringe
-    num_in_layer = len(fringe)
     while fringe:
         # Remove in FIFO fashion
         v = fringe.popleft()
         num_in_layer -= 1
         map[v] = distance
-        if num_in_layer == 0:
-            num_in_layer = len(fringe)
-            distance += 1
         num_visited += 1
         # If we found goal cell, break out of loop
         if not distances and v == g:
@@ -223,8 +220,12 @@ def bfs(maze, s, g, distances=False):
             if (x, y) not in visited and valid_cell(x, y, maze):
                 visited.add((x, y))
                 fringe.append((x, y))
+        if num_in_layer == 0:
+            num_in_layer = len(fringe)
+            distance += 1
 
     if distances:
+        map.pop(s, None)  # we don't care about start
         return map
     # Return total number of cells BFS visited
     return num_visited
@@ -375,14 +376,14 @@ def scorch(maze, s, g, h_map, fires, q):
     block_heap = []
     if check_heap:
         num_trials = 100
-        temp = deepcopy(maze)
-        temp_fires = deepcopy(fires)
         ignition_counts = {}
         for item in check_heap:
             cell = item[1]
             ignition_counts[cell] = 0.0
         saved_heap = check_heap.copy()
         for trial in range(num_trials):
+            temp = deepcopy(maze)
+            temp_fires = fires.copy()
             fire_step = 0
             check_heap = saved_heap.copy()
             while check_heap:
@@ -390,21 +391,20 @@ def scorch(maze, s, g, h_map, fires, q):
                 fire_step += 1
                 while check_heap and check_heap[0][0] == fire_step:
                     popped = heapq.heappop(check_heap)
-                    (x, y) = popped[1]
+                    x, y = popped[1]
                     if temp[x][y] == 2:
                         ignition_counts[(x, y)] += 1.0
         for (x, y) in ignition_counts.keys():
             count = ignition_counts.get((x, y))
             prob = count / num_trials
-            heapq.heappush(block_heap, (-1 * prob, (x, y)))
+            heapq.heappush(block_heap, (-1 * prob, (x, y)))  # -1 because we want max heap functionality
 
-    # in temp maze, block off most dangerous cells until we can't anymore
+    # in temp maze, block as many dangerous cells as we can and then run a*
     temp = deepcopy(maze)
-    (x, y) = (0, 0)
-    while block_heap and dfs(temp, s, g):
+    while block_heap:
         popped = heapq.heappop(block_heap)
-        (x, y) = popped[1]
+        x, y = popped[1]
         temp[x][y] = 1
-    if not dfs(temp, s, g):
-        temp[x][y] = 0
+        if not dfs(temp, s, g):
+            temp[x][y] = 0
     return a_star(temp, s, g, h_map, path=True)

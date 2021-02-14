@@ -115,7 +115,7 @@ def problem6():
 
     t = time.time()
 
-    x = [q / q_steps for q in range(q_steps)]
+    xs = [[q / q_steps + i/200 for q in range(q_steps)] for i in range(3)]
     ys = [[0 for _ in range(q_steps)] for _ in range(3)]
     h_map = {}
     h = lambda f, g: math.sqrt(math.pow(f[0] - g[0], 2) + math.pow(f[1] - g[1], 2))
@@ -132,9 +132,9 @@ def problem6():
 
     print(time.time() - t)
 
-    plt.scatter(x, ys[0], s=[5 for _ in x], c="Red")
-    plt.scatter(x, ys[1], s=[5 for _ in x], c="Blue")
-    plt.scatter(x, ys[2], s=[5 for _ in x], c="Green")
+    plt.scatter(xs[0], ys[0], s=5, c="Red")
+    plt.scatter(xs[1], ys[1], s=5, c="Blue")
+    plt.scatter(xs[2], ys[2], s=5, c="Green")
     plt.title('Figure 6')
     plt.xlabel('Flammability Rate, q')
     plt.ylabel('Success Rate')

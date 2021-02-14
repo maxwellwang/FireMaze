@@ -111,11 +111,11 @@ def problem6():
     exec = concurrent.futures.ProcessPoolExecutor()
     q_steps = 40
     q_trials = 40
-    dim = 4
+    dim = 75
 
     t = time.time()
 
-    xs = [[q / q_steps + i/200 for q in range(q_steps)] for i in range(3)]
+    xs = [[q / q_steps + i / 200 for q in range(q_steps)] for i in range(3)]
     ys = [[0 for _ in range(q_steps)] for _ in range(3)]
     h_map = {}
     h = lambda f, g: math.sqrt(math.pow(f[0] - g[0], 2) + math.pow(f[1] - g[1], 2))
@@ -202,3 +202,31 @@ if __name__ == "__main__":
     # problem4()
     # fire_sim()
     problem6()
+    exit(0)
+    maze = [[0, 0, 0, 0], [0, 1, 1, 0], [0, 0, 2, 0], [0, 0, 0, 0]]
+    fires = [(2, 2)]
+    last_fires = None
+    dim = 4
+    q = .1
+    current = (0, 0)
+    h_map = {}
+    h = lambda f, g: math.sqrt(math.pow(f[0] - g[0], 2) + math.pow(f[1] - g[1], 2))
+    for i in range(dim):
+        for j in range(dim):
+            h_map[(i, j)] = h((i, j), (dim - 1, dim - 1))
+    while True:
+        if last_fires != fires:
+            path = scorch(maze, current, (dim - 1, dim - 1), h_map, fires, q)
+        if path:
+            current = path.popleft()
+            print('maze:')
+            print_maze(maze, agent=current)
+            print()
+            if (current[0], current[1]) == (dim - 1, dim - 1):
+                exit(0)
+        else:
+            exit(1)
+        last_fires = fires.copy()
+        maze, fires = tick_maze(maze, fires, q)
+        if maze[current[0]][current[1]] != 0 or not dfs(maze, current, (dim - 1, dim - 1)):
+            exit(1)

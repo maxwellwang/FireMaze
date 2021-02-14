@@ -217,7 +217,8 @@ def bfs(maze, s, g, distances=False):
             break
         # For each neighbor, add to fringe if not visited and valid
         for x, y in adj_cells(v):
-            if (x, y) not in visited and valid_cell(x, y, maze):
+            if (x, y) not in visited and valid_cell(x, y, maze) and not (
+                    distances and (x, y) == (len(maze) - 1, len(maze) - 1)):
                 visited.add((x, y))
                 fringe.append((x, y))
         if num_in_layer == 0:
@@ -296,52 +297,6 @@ def a_star(maze, s, g, h_map, path=False):
         return num_visited
 
 
-def sim_tick_maze(maze, fires, q, threshold):
-    """
-    Simulates the fire spreading one step in some maze
-    :param maze: The maze to simulate fire in
-    :param fires: A set containing coordinates of every fire
-    :param q: The flammability rate of the fire
-    :param threshold: If cell ignition prob is at least threshold, then ignite it
-    :return: Tuple containing the new maze and new set of fires
-    """
-
-    def count_fires(maze, fire):
-        """
-        Helper function to count fires surronding a cell
-        :param maze: Maze to count from
-        :param fire: Pair of coordinates of interest
-        :return: Number of fires surronding cell
-        """
-        num_fires = 0
-        for dx, dy in adj_cells(fire):
-            if valid_cell(dx, dy, maze, val=2):
-                num_fires += 1
-        return num_fires
-
-    # Generate a copy of current fires and maze
-    new_fires = fires[:]
-    new_maze = [row[:] for row in maze]
-    visited = set()
-
-    # For each fire, we check its neighbors
-    for fire in fires:
-        for x, y in adj_cells(fire):
-            # If the cell is open and we have not simulated it, simulate the fire spreading
-            if valid_cell(x, y, maze) and (x, y) not in visited:
-                if 1 - math.pow(1 - q, count_fires(maze, (x, y))) >= threshold:
-                    # If fire spreads, update the new maze and new fires
-                    new_maze[x][y] = 2
-                    new_fires.append((x, y))
-                visited.add((x, y))
-        # If the cell we were checking is now surrounded by four fires,
-        # it can no longer spread so we remove it from our list
-        if count_fires(new_maze, fire) == 4:
-            new_fires.remove(fire)
-
-    return new_maze, new_fires
-
-
 def scorch(maze, s, g, h_map, fires, q):
     '''
     simulated circumvention of risk convergence hotspots: simulates spread of fire several times and calculates
@@ -399,12 +354,28 @@ def scorch(maze, s, g, h_map, fires, q):
             prob = count / num_trials
             heapq.heappush(block_heap, (-1 * prob, (x, y)))  # -1 because we want max heap functionality
 
+    '''
+    deb = deepcopy(maze)
+    for tuple in block_heap:
+        prob = tuple[0] * -1
+        x, y = tuple[1]
+        deb[x][y] = prob
+    deb[s[0]][s[1]] = 'A'
+    for row in deb:
+        print(row)
+    print()
+    '''
+
     # in temp maze, block as many dangerous cells as we can and then run a*
     temp = deepcopy(maze)
     while block_heap:
         popped = heapq.heappop(block_heap)
         x, y = popped[1]
-        temp[x][y] = 1
-        if not dfs(temp, s, g):
-            temp[x][y] = 0
+        prob = popped[0] * -1
+        if prob != 0.0:
+            temp[x][y] = 1
+            if not dfs(temp, s, g):
+                temp[x][y] = 0
+    # print('temp:')
+    # print_maze(temp, agent=s)
     return a_star(temp, s, g, h_map, path=True)

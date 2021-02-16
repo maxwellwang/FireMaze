@@ -111,7 +111,7 @@ def problem6():
     exec = concurrent.futures.ProcessPoolExecutor()
     q_steps = 40
     q_trials = 40
-    dim = 75
+    dim = 10
 
     t = time.time()
 

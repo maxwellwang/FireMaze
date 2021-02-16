@@ -224,6 +224,8 @@ def bfs(maze, s, g, distances=False):
         if num_in_layer == 0:
             num_in_layer = len(fringe)
             distance += 1
+            if distance > len(maze) * 2:
+                break
 
     if distances:
         map.pop(s, None)  # we don't care about start
@@ -330,7 +332,7 @@ def scorch(maze, s, g, h_map, fires, q):
     # simulate fire spread and calculate chance of each cell being on fire when agent arrives there
     block_heap = []
     if check_heap:
-        num_trials = 100
+        num_trials = 10
         ignition_counts = {}
         for item in check_heap:
             cell = item[1]
@@ -347,7 +349,8 @@ def scorch(maze, s, g, h_map, fires, q):
                 while check_heap and check_heap[0][0] == fire_step:
                     popped = heapq.heappop(check_heap)
                     x, y = popped[1]
-                    if temp[x][y] == 2:
+                    # if cell is on fire or goal is on fire, count as failure
+                    if temp[x][y] == 2 or temp[len(maze) - 1][len(maze) - 1] == 2:
                         ignition_counts[(x, y)] += 1.0
         for (x, y) in ignition_counts.keys():
             count = ignition_counts.get((x, y))
@@ -376,6 +379,4 @@ def scorch(maze, s, g, h_map, fires, q):
             temp[x][y] = 1
             if not dfs(temp, s, g):
                 temp[x][y] = 0
-    # print('temp:')
-    # print_maze(temp, agent=s)
     return a_star(temp, s, g, h_map, path=True)

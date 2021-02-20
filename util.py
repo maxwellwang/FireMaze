@@ -34,6 +34,7 @@ def adj_cells(pair):
 def print_maze(maze, agent = None):
     """
     :param maze: Maze to be printed
+    :param agent: cell that the agent is currently on, None by default
     :return: None
     """
 
@@ -139,7 +140,7 @@ def tick_maze(maze, fires, q):
     new_fires = list(set(new_fires))
     return (new_maze, new_fires)
 
-def sim_maze(maze, fires, q, minp = 0.05):
+def sim_maze(maze, fires, q):
     """
     Simulates the fire spreading one step in some maze
     :param maze: The maze to simulate fire in
@@ -148,13 +149,13 @@ def sim_maze(maze, fires, q, minp = 0.05):
     :return: Tuple containing the new maze and new set of fires
     """
     def prob_fires(maze, fire):
-        nonlocal q
         """
         Helper function to count fires surronding a cell
         :param maze: Maze to count from
         :param fire: Pair of coordinates of interest
         :return: Number of fires surronding cell
         """
+        nonlocal q
 
         fires = []
         for dx, dy in adj_cells(fire):
@@ -162,18 +163,23 @@ def sim_maze(maze, fires, q, minp = 0.05):
                 if maze[dx][dy] > 1:
                     fires.append(maze[dx][dy] - 1)
 
+        # Count number of fires, take the average
         num_fires = len(fires)
         avg = sum(fires) / num_fires
+        # Apply the approximation we have
         prob = avg * q * (0.3 + num_fires * 0.7)
+        # Fix case if cell already on fire
         cur_prob = maze[fire[0]][fire[1]]
         if cur_prob != 0:
             cur_prob -= 1
 
+        # Adjust probability cell is on fire
         prob = cur_prob + (1 - cur_prob) * prob
 
+        # Round probability if needed
         if prob > 0.95:
             prob = 1
-        if prob < minp:
+        if prob < 0.065:
             prob = 0
         return prob
 
@@ -195,6 +201,7 @@ def sim_maze(maze, fires, q, minp = 0.05):
                     if prob_fire > 0:
                         new_maze[x][y] = 1 + prob_fire
                         new_fires.append((x, y))
+                        # Checks if fire can be removed from active fire list (if surronded by fires)
                         if prob_fire == 1:
                             num = 0
                             for w, z in adj_cells(fire):
@@ -283,6 +290,10 @@ def a_star(maze, s, g, h_map, f = None, r = None, path = False):
     :param maze: The particular maze to check
     :param s: Tuple of coordinates, the starting coordinate
     :param g: Tuple of coordinates, the goal coordinate
+    :param h_map: A mapping from each cell to some heuristic helper value
+    :param f: An array of future mazes with expected fire probabilities
+    :param r: The round offset, aka how "old" the future maze is (since we do not compute every round)
+    :param path: Wether or not to return the path or just the number of nodes visited
     :return: Integer of the number of visited cells
     """
 
@@ -320,6 +331,7 @@ def a_star(maze, s, g, h_map, f = None, r = None, path = False):
                         # Push onto the heap the weight from the heuristic
                         heapq.heappush(fringe, (dist_v + 1 + f[min(round((taxi - 1)*1) + r, len(maze)*2-3)][x][y] * 50 + math.fabs(g[0] - x) + math.fabs(g[1] - y), (x, y)))
                     else:
+                        # If not using SCORCH, just use the given heuristic instead
                         heapq.heappush(fringe, (dist_v + 1 + h_map[(x, y)], (x, y)))
 
     # If looking for the path, return it, if not return cells visited.
@@ -327,8 +339,10 @@ def a_star(maze, s, g, h_map, f = None, r = None, path = False):
         shortest_path = deque()
         shortest_path.append(g)
         prev = parent[g[0]][g[1]]
+        # No parent assigned to goal, so it was not reached
         if prev == None:
             return None
+        # There is a parent, keep following the chain to the start and return
         while prev != s:
             shortest_path.appendleft(prev)
             prev = parent[prev[0]][prev[1]]

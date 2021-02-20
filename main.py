@@ -64,7 +64,7 @@ def problem3():
     y = [0 for _ in range(p_steps)]
 
     # Submit all the jobs and process the info
-    futures = {exec.submit(p3_trial, h_map, dim, p / p_steps): p / p_steps for _ in range(trials_per_p) for p in range(p_steps//2)}
+    futures = {exec.submit(p3_trial, h_map, dim, p / p_steps): p / p_steps for _ in range(trials_per_p) for p in range(p_steps)}
     for f in concurrent.futures.as_completed(futures):
         y[round(futures[f] * p_steps)] += f.result()
     y = [i / trials_per_p for i in y]
@@ -90,9 +90,9 @@ def problem4():
 
     x, y = [], []
 
-
     # Submit jobs
-    futures = {exec.submit(p4_trial, dim*1000, 0.3): dim*1000 for _ in range(50) for dim in range(1, 6)}
+    futures = {exec.submit(p4_trial, dim*1000, 0.3): dim*1000 for _ in range(100) for dim in range(1, 6)}
+
     # Process results
     for f in concurrent.futures.as_completed(futures):
         x.append(futures[f]*1000)
@@ -129,13 +129,11 @@ def p4_trial(dim, p):
 
 def problem6():
     # Process pool
-    exec = concurrent.futures.ProcessPoolExecutor(max_workers=18)
+    exec = concurrent.futures.ProcessPoolExecutor()
     # Parameters
     q_steps = 7*3*2
     q_trials = 7*6*2
     dim = 100
-
-    t = time.time()
 
     h_map = {}
     h = lambda f, g : math.sqrt(math.pow(f[0]-g[0], 2) + math.pow(f[1]-g[1], 2))
@@ -145,31 +143,18 @@ def problem6():
         for j in range(dim):
             h_map[(i, j)] = h((i, j), (dim - 1, dim - 1))
 
-    dirname = str(time.time()) + "/"
-    os.mkdir(dirname)
+    # Generate the data, shift x values by small amount to prevent overlap
+    xs = [[i / 200 + q / q_steps for q in range(q_steps)] for i in range(3)]
+    ys = [[0 for _ in range(q_steps)] for _ in range(3)]
 
-    for minp in [0.065]:
-        # Generate the data, shift x values by small amount to prevent overlap
-        xs = [[i / 200 + q / q_steps for q in range(q_steps)] for i in range(3)]
-        ys = [[0 for _ in range(q_steps)] for _ in range(3)]
+    # Submit the jobs to the executor
+    futures = {exec.submit(p6_trial, h_map = h_map, dim = dim, q = q / q_steps): q / q_steps for _ in range(q_trials) for q in range(q_steps)}
 
-        # Submit the jobs to the executor
-        futures = {exec.submit(p6_trial, h_map = h_map, dim = dim, q = q / q_steps, minp = minp): q / q_steps for _ in range(q_trials) for q in range(3*q_steps//4)}
-
-        # Process the completed jobs
-        for f in concurrent.futures.as_completed(futures):
-            results = f.result()
-            for i in range(3):
-                ys[i][round(futures[f] * q_steps)] += results[i] / q_trials
-
-        f = open(dirname  + "log-" + str(minp) + "-" +  ".txt", "w")
-        f.write(str(q_steps) + str(q_trials) + str(dim) + " " + str(time.time() - t) + "\n")
-        for n in ys:
-            for m in n:
-                f.write(str(m) + " ")
-            f.write("\n")
-        totdif = str(sum(ys[2][i] - ys[1][i] for i in range(len(ys[i]))) / len(ys[1]))
-        f.write(totdif + "\n")
+    # Process the completed jobs
+    for f in concurrent.futures.as_completed(futures):
+        results = f.result()
+        for i in range(3):
+            ys[i][round(futures[f] * q_steps)] += results[i] / q_trials
 
     # Plot the data
     plt.scatter(xs[0], ys[0], s=5, c="Red", label = "Strategy 1")
@@ -184,7 +169,7 @@ def problem6():
     plt.show()
 
 
-def p6_trial(dim = 100, p = 0.3, q = 0.3, h_map = None, debug = False, minp = 0.05):
+def p6_trial(dim = 100, p = 0.3, q = 0.3, h_map = None, debug = False):
     results, nexts, deqs = [-1] * 3, [(0, 0)] * 3, [None] * 3
 
     # Generate a maze where start is reachable from goal and fire is reachable from start
@@ -196,22 +181,22 @@ def p6_trial(dim = 100, p = 0.3, q = 0.3, h_map = None, debug = False, minp = 0.
         deqs[1] = a_star(maze, nexts[1], fires[0], h_map = h_map, path=True)
         maze[fires[0][0]][fires[0][1]] = 2
         
-    f = []
+    future_mazes = []
     round = 0
     while True:
-        # Generate future fire mazes for our algorithm
+        # Generate future fire mazes for our SCORCH algorithm
         if round % 4 == 0:
-            f.clear()
+            future_mazes.clear()
             fires_2, maze_2 = fires[:], [r[:] for r in maze]
             for _ in range(2 * (dim - 1)):
-                maze_2, fires_2 = sim_maze(maze_2, fires_2, q, minp)
-                f.append(maze_2)
+                maze_2, fires_2 = sim_maze(maze_2, fires_2, q)
+                future_mazes.append(maze_2)
         round += 1
 
         # Ask Strategy 2 and 3 for the next move given the particular info
         deqs[1] = a_star(maze, nexts[1], (len(maze) - 1, len(maze) - 1), h_map=h_map, path=True)
         # This is SCORCH
-        deqs[2] = a_star(maze, nexts[2], (len(maze) - 1, len(maze) - 1), h_map=h_map, f = f, r = round % 4, path=True)
+        deqs[2] = a_star(maze, nexts[2], (len(maze) - 1, len(maze) - 1), h_map=h_map, f = future_mazes, r = round % 4, path=True)
 
         # Simulate one step of the maze
         maze, fires = tick_maze(maze, fires, q)
@@ -242,8 +227,8 @@ def p6_trial(dim = 100, p = 0.3, q = 0.3, h_map = None, debug = False, minp = 0.
 
 
 if __name__ == "__main__":
-    # problem1()
-    # problem2()
-    # problem3()
-    # problem4()
+    problem1()
+    problem2()
+    problem3()
+    problem4()
     problem6()
